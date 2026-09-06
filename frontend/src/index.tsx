@@ -1,5 +1,5 @@
 import { render } from 'solid-js/web';
-import { attachConsole } from 'tauri-plugin-log-api';
+import { attachConsole } from '@tauri-apps/plugin-log';
 
 import { App, Layout } from './pages';
 
