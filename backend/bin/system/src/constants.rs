@@ -3,3 +3,5 @@ pub const DEFAULT_DEVICE_NAME: &str = "Unknown";
 
 pub const APP_PORTABLE_DATA_DIR: &str = "data";
 pub const APP_DEVICE_UUID_FILE: &str = "device_uuid";
+pub const ANDROID_SUBDEVICE_UUID_DOMAIN: &[u8] =
+    b"org.kiwitalk.kiwitalk/android-subdevice/device-uuid/v1\0";
