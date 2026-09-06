@@ -1,80 +1,28 @@
-# Contributing to KiwiTalk
-Thank you for your interest in contributing KiwiTalk!
-This documentation contains
-- project summary and design goals of KiwiTalk
-- how to setup development environment
-- how to add new feature or fix bugs
+# 기여 안내
 
-Before you start, checkout community's [Code of Conduct](./CODE_OF_CONDUCT.md)
-and if you'd like, join [Discord](https://discord.gg/vVs8WVY3y6) server.
+이 저장소는 Linux에서 KiwiTalk을 다시 사용할 수 있도록 복구하는 포크입니다. 로그인·기기 등록, 채팅 동기화, Linux 호환성 개선을 우선하고 있습니다.
 
-For detailed project strcuture, checkout [ARCHITECTURE.md](./ARCHITECTURE.md).
+개발 환경과 실행 명령은 [README](./README.md#개발-환경에서-실행), 코드 구조는 [ARCHITECTURE.md](./ARCHITECTURE.md)를 참고해 주세요. 참여할 때는 [행동 강령](./CODE_OF_CONDUCT.md)을 지켜 주세요.
 
-## About KiwiTalk
-KiwiTalk is open-source alternative `KakaoTalk` client.
-The project is currently focusing on supporting OS where official client does not run.
+## 이슈
 
-## Design goals
-KiwiTalk currently has following design goals:
-- **Lightweight**: Uses only necessary resources, unload when it is not used
-- **Portable**: Easily move user data between devices
-- **Fast**: App runs performant, responsive and parallel
-- **Modular**: Split large codes into replacable modules
+[이 저장소의 Issues](https://github.com/dlwltkd/kiwitalk/issues)에 아래 정보를 함께 적어 주세요.
 
-**Note**: Official client & server is proprietary and undocumented, so
-A lot of experiments need to be done.
-This means a lot of code can be changed quickly over time.
+- OS·배포판, 데스크톱 환경, 사용한 커밋
+- 재현 절차와 기대한 동작, 실제 결과
+- 관련 로그와 오류 메시지
 
-## Development environment
-KiwiTalk is `tauri` project. Please follow [Tauri development prerequisites](https://tauri.app/v1/guides/getting-started/prerequisites/).
+비밀번호, 인증 토큰, 계정 식별 정보와 개인 대화 내용은 제거해 주세요. 범위가 큰 변경은 이슈에서 먼저 논의해 주세요.
 
-`pnpm` is being used to run various commands and frontend package management.
-If you don't have pnpm installed, please follow [pnpm installation guide](https://pnpm.io/installation).
+## Pull Request
 
-Install frontend dependencies using command:
-```sh
-pnpm install
-```
+1. 이 저장소를 포크하고 `main`에서 작업 브랜치를 만듭니다.
+2. 변경과 관련된 검사를 실행합니다. 프런트엔드는 `pnpm run frontend:typecheck`, Rust는 `cargo check --workspace --locked`로 확인하고, 동작을 바꿨다면 관련 테스트도 실행해 주세요.
+3. 커밋 메시지는 `fix:`, `feat:`, `docs:`처럼 변경 목적을 드러내는 형식으로 작성합니다.
+4. [이 저장소에 PR](https://github.com/dlwltkd/kiwitalk/compare)을 열고 대상(base) 브랜치를 `main`으로 선택합니다. 변경 이유, 확인한 환경과 결과, 남은 문제를 적어 주세요.
 
-### Launch
-To launch KiwiTalk uses command below:
-```sh
-pnpm run dev
-```
+UI 변경에는 스크린샷을 첨부해 주세요. 실행하지 못한 검사는 그 이유를 함께 적어 주세요.
 
-If you are running on Windows Subsystem for Linux, follow [Microsoft official document](https://learn.microsoft.com/en-US/windows/wsl/tutorials/gui-apps).
+## 라이선스
 
-### Storybook
-Storybook is used for designing gui components.
-To run storybook uses command below:
-```sh
-pnpm run storybook
-```
-
-Also checkout [KiwiTalk UI Mockup](https://www.figma.com/file/JYO6jyz0Kji2KiPCW5cH5o/KiwiTalk-UI-Mockup-2?node-id=0%3A1).
-
-## Add new feature or fix bugs
-Navigate to [issues](https://github.com/KiwiTalk/KiwiTalk/issues) page and finds issues tagged with `Status: Available`.
-If you are first, it is good to starts with issues tagged with `good first issue`.
-
-1. Login to Github and fork KiwiTalk repository.
-Clone forked repository using
-```sh
-git clone https://github.com/<username>/KiwiTalk.git
-```
-**Note**: Change `<username>` to your Github username.
-
-2. Enter to repository directory
-```sh
-cd KiwiTalk
-```
-
-3. Make changes, commit and push. For example:
-```sh
-git add *
-git commit -m "feat: implement new feature"
-git push
-```
-**Note**: Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/)
-
-4. Create pull request to dev branch. [Pull requests](https://github.com/KiwiTalk/KiwiTalk/pulls) 
+기여한 코드에도 [Apache License 2.0](./LICENSE-APACHE)을 적용합니다. 기존 저작권·출처 표기를 유지하고, 외부 코드나 자산을 포함할 때는 출처와 라이선스를 함께 기록해 주세요. 원본과 이 포크의 출처는 [NOTICE](./NOTICE)에 정리되어 있습니다.
