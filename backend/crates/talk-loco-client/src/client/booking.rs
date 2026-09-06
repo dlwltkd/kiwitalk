@@ -83,11 +83,11 @@ pub struct ConnectionData {
     pub ping_interval: i32,
 
     /// Request timeout
-    #[serde(rename = "reqTimeout")]
+    #[serde(default, rename = "reqTimeout")]
     pub request_timeout: i32,
 
     /// Encrypt type, but crate loco_protocol only supports 2 and server seems to use 2 only.
-    #[serde(rename = "encType")]
+    #[serde(default, rename = "encType")]
     pub encrypt_type: i32,
 
     /// Connection timeout
@@ -118,9 +118,11 @@ pub struct ConnectionData {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HostData {
     /// Unknown
+    #[serde(default)]
     pub ssl: Vec<String>,
 
     /// Unknown
+    #[serde(default)]
     pub v2sl: Vec<String>,
 
     /// Usable host list
@@ -147,7 +149,7 @@ pub struct Trailer {
     #[serde(rename = "compRatioHD")]
     pub compress_ratio_hd: i8,
 
-    #[serde(rename = "downMode")]
+    #[serde(default, rename = "downMode")]
     pub down_mode: i8,
 
     /// Concurrent file download limit
