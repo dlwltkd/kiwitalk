@@ -59,6 +59,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             language: "ko",
             country_iso: "ko",
             use_sub: true,
+            device_name: None,
         })
         .await;
 
