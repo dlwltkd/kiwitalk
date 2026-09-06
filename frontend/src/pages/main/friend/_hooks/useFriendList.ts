@@ -7,8 +7,10 @@ import { useReady } from '../../_hooks';
 export const useFriendList = () => {
   const isReady = useReady();
 
-  const [friends] = createResource([] as FriendProfile[], async (list) => {
-    if (!isReady) return list;
+  const [friends] = createResource(isReady, async (ready) => {
+    if (!ready) return [] as FriendProfile[];
+
+    const list: FriendProfile[] = [];
 
     const res = await updateFriends(list.map((friend) => friend.userId));
 
