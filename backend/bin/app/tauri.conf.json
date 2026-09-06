@@ -1,70 +1,38 @@
 {
-  "$schema": "../../../node_modules/@tauri-apps/cli/schema.json",
+  "$schema": "../../../node_modules/@tauri-apps/cli/config.schema.json",
+  "app": {
+    "macOSPrivateApi": true,
+    "security": {
+      "capabilities": ["main"],
+      "csp": null
+    }
+  },
   "build": {
     "beforeBuildCommand": "pnpm run frontend:build",
     "beforeDevCommand": "pnpm run frontend:dev",
-    "devPath": "http://localhost:5173",
-    "distDir": "../../../frontend/dist"
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "../../../frontend/dist"
   },
-  "package": {
-    "productName": "KiwiTalk"
-  },
-  "tauri": {
-    "allowlist": {
-      "all": true,
-      "http": {
-        "all": true,
-        "request": true,
-        "scope": ["https://*", "http://*"]
-      }
-    },
-    "bundle": {
-      "active": true,
-      "category": "SocialNetworking",
-      "copyright": "",
+  "bundle": {
+    "active": true,
+    "category": "SocialNetworking",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/256x256.png",
+      "icons/512x512.png",
+      "icons/icon.ico"
+    ],
+    "linux": {
       "deb": {
         "depends": []
-      },
-      "externalBin": [],
-      "icon": [
-        "icons/32x32.png",
-        "icons/128x128.png",
-        "icons/256x256.png",
-        "icons/512x512.png",
-        "icons/icon.ico"
-      ],
-      "identifier": "org.kiwitalk.kiwitalk",
-      "longDescription": "",
-      "macOS": {
-        "entitlements": null,
-        "exceptionDomain": "",
-        "frameworks": [],
-        "providerShortName": null,
-        "signingIdentity": null
-      },
-      "resources": [],
-      "shortDescription": "",
-      "targets": "all",
-      "windows": {
-        "certificateThumbprint": null,
-        "digestAlgorithm": "sha256",
-        "timestampUrl": ""
       }
     },
-    "security": {
-      "csp": null
-    },
-    "updater": {
-      "active": true,
-      "endpoints": [
-        "https://github.com/KiwiTalk/KiwiTalk/releases/latest/download/latest.json"
-      ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDRBQjhBOEZDMTc2Mzk3OTcKUldTWGwyTVgvS2k0U3BxK0cyVHcyemlCcWszWVlOQjNUTU9jOHhaRExaSUsvYnFPZDBBd2g4c3oK"
-    },
-    "macOSPrivateApi": true,
-    "systemTray": {
-      "iconPath": "icons/512x512.png",
-      "iconAsTemplate": true
-    }
-  }
+    "targets": "all"
+  },
+  "identifier": "org.kiwitalk.kiwitalk",
+  "mainBinaryName": "KiwiTalk",
+  "plugins": {},
+  "productName": "KiwiTalk",
+  "version": "0.5.1"
 }
