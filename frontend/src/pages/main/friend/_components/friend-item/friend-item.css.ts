@@ -1,83 +1,52 @@
-import { classes, vars } from '@/features/theme';
-import { style, styleVariants } from '@vanilla-extract/css';
+import { style } from '@vanilla-extract/css';
 
-const baseContainer = style({
-  display: 'flex',
-  justifyContent: 'flex-start',
+import { vars } from '@/features/theme';
+
+export const container = style({
+  width: '100%',
+  minHeight: '44px',
+  display: 'grid',
+  gridTemplateColumns: '28px minmax(0, 1fr)',
   alignItems: 'center',
-
-  backgroundColor: 'transparent',
-  borderRadius: vars.radius.regular,
-  userSelect: 'none',
-  cursor: 'pointer',
-
-  transition: `background ${vars.easing.background}`,
+  gap: '6px',
+  padding: '5px 8px',
+  borderLeft: '2px solid transparent',
 
   selectors: {
     '&:hover': {
-      backgroundColor: vars.color.overlay.background,
+      background: vars.color.terminal.surfaceHover,
+      borderLeftColor: vars.color.terminal.accent,
     },
   },
 });
 
-export const container = styleVariants({
-  default: [baseContainer, {
-    width: '100%',
-
-    gap: '12px',
-    padding: '12px 16px',
-  }],
-  collapsed: [baseContainer, {
-    width: 44 + 12 + 12,
-
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '4px',
-
-    padding: '12px',
-  }],
+export const index = style({
+  alignSelf: 'start',
+  paddingTop: '2px',
+  color: vars.color.terminal.accent,
+  fontSize: '9px',
 });
 
-
-const baseTextContainer = style({
-  width: '100%',
-
+export const textContainer = style({
+  minWidth: 0,
   display: 'flex',
   flexDirection: 'column',
-  alignItems: 'center',
-});
-export const textContainer = styleVariants({
-  default: [baseTextContainer, {
-    alignItems: 'flex-start',
-    gap: '4px',
-  }],
-  collapsed: [baseTextContainer, {
-    justifyContent: 'center',
-    textAlign: 'center',
-  }],
+  gap: '3px',
 });
 
-export const title = styleVariants({
-  default: [classes.typography.head3, {
-    color: vars.color.glassPrimary.fillPrimary,
-  }],
-  collapsed: [classes.typography.fineprint, {
-    width: '100%',
-
-    fontWeight: 600,
-    color: vars.color.glassPrimary.fillPrimary,
-
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-  }],
+export const title = style({
+  overflow: 'hidden',
+  color: vars.color.terminal.foregroundBright,
+  fontSize: '11px',
+  fontWeight: 700,
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
 });
 
-export const description = styleVariants({
-  default: [classes.typography.body, {
-    color: vars.color.glassPrimary.fillSecondary,
-  }],
-  collapsed: [classes.typography.fineprint, {
-    color: vars.color.glassPrimary.fillSecondary,
-  }],
+export const description = style({
+  overflow: 'hidden',
+  color: vars.color.terminal.foregroundMuted,
+  fontSize: '9px',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
 });
