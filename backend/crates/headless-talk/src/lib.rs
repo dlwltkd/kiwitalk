@@ -16,7 +16,7 @@ use channel::{
     ChannelListItem, ChannelOp, ClientChannel,
 };
 use conn::Conn;
-use diesel::{BoolExpressionMethods, ExpressionMethods, QueryDsl, RunQueryDsl};
+use diesel::{BoolExpressionMethods, ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl};
 
 use database::{
     model::channel::ChannelListRow,
@@ -29,6 +29,9 @@ use talk_loco_client::{
 };
 use task::BackgroundTask;
 use thiserror::Error;
+use updater::chat::ChatUpdater;
+
+pub use updater::chat::{HistorySyncResult, HistorySyncStop};
 
 pub use talk_loco_client;
 
@@ -41,6 +44,10 @@ pub struct HeadlessTalk {
 }
 
 impl HeadlessTalk {
+    pub async fn shutdown(&self) {
+        futures::join!(self._ping_task.shutdown(), self._stream_task.shutdown());
+    }
+
     pub fn user_id(&self) -> i64 {
         self.conn.user_id
     }
@@ -70,37 +77,41 @@ impl HeadlessTalk {
     }
 
     pub async fn load_channel(&self, id: i64) -> ClientResult<Option<ClientChannel>> {
-        let last_seen_log_id = self
-            .conn
-            .pool
-            .spawn(move |conn| {
-                let last_seen_log_id: Option<i64> = channel_list::table
-                    .filter(channel_list::id.eq(id))
-                    .select(channel_list::last_seen_log_id)
-                    .first::<Option<i64>>(conn)?;
-
-                Ok(last_seen_log_id)
-            })
-            .await?;
-
         let res = TalkSession(&self.conn.session)
             .channel(id)
-            .chat_on(last_seen_log_id)
+            .chat_on(None)
             .await?;
+        let active_user_count = res.active_user_ids.as_ref().map(|ids| ids.len() as i32);
+        let watermark_pairs = res
+            .active_user_ids
+            .unwrap_or_default()
+            .into_iter()
+            .zip(res.watermarks.unwrap_or_default())
+            .collect::<Vec<_>>();
 
-        if let (Some(active_user_ids), Some(watermarks)) = (res.active_user_ids, res.watermarks) {
-            let active_user_count = active_user_ids.len() as i32;
-            let watermark_iter = active_user_ids.into_iter().zip(watermarks.into_iter());
+        let mut channel = match res.channel_type {
+            ChatOnChannelType::DirectChat(normal)
+            | ChatOnChannelType::MultiChat(normal)
+            | ChatOnChannelType::MemoChat(normal) => Some(ClientChannel::Normal(
+                normal::load_channel(id, &self.conn, normal).await?,
+            )),
 
+            _ => None,
+        };
+
+        if active_user_count.is_some() || !watermark_pairs.is_empty() {
+            let persisted_watermarks = watermark_pairs.clone();
             self.conn
                 .pool
                 .spawn_transaction(move |conn| {
-                    diesel::update(channel_list::table)
-                        .filter(channel_list::id.eq(id))
-                        .set(channel_list::active_user_count.eq(active_user_count))
-                        .execute(conn)?;
+                    if let Some(active_user_count) = active_user_count {
+                        diesel::update(channel_list::table)
+                            .filter(channel_list::id.eq(id))
+                            .set(channel_list::active_user_count.eq(active_user_count))
+                            .execute(conn)?;
+                    }
 
-                    for (user_id, watermark) in watermark_iter {
+                    for (user_id, watermark) in persisted_watermarks {
                         diesel::update(user_profile::table)
                             .filter(
                                 user_profile::channel_id
@@ -116,15 +127,55 @@ impl HeadlessTalk {
                 .await?;
         }
 
-        Ok(match res.channel_type {
-            ChatOnChannelType::DirectChat(normal)
-            | ChatOnChannelType::MultiChat(normal)
-            | ChatOnChannelType::MemoChat(normal) => Some(ClientChannel::Normal(
-                normal::load_channel(id, &self.conn, normal).await?,
-            )),
+        if let Some(ClientChannel::Normal(normal)) = &mut channel {
+            for (user_id, user) in &mut normal.users {
+                if let Some((_, watermark)) = watermark_pairs
+                    .iter()
+                    .find(|(watermark_user_id, _)| watermark_user_id == user_id)
+                {
+                    user.watermark = *watermark;
+                }
+            }
+        }
 
-            _ => None,
-        })
+        Ok(channel)
+    }
+
+    pub async fn sync_channel_history(&self, id: i64) -> ClientResult<HistorySyncResult> {
+        let last_seen_log_id = self
+            .conn
+            .pool
+            .spawn(move |conn| {
+                Ok(channel_list::table
+                    .filter(channel_list::id.eq(id))
+                    .select(channel_list::last_seen_log_id)
+                    .first::<Option<i64>>(conn)
+                    .optional()?
+                    .flatten())
+            })
+            .await?;
+
+        let room = TalkSession(&self.conn.session)
+            .channel(id)
+            .chat_on(last_seen_log_id)
+            .await?;
+
+        if !matches!(
+            &room.channel_type,
+            ChatOnChannelType::DirectChat(_)
+                | ChatOnChannelType::MultiChat(_)
+                | ChatOnChannelType::MemoChat(_)
+        ) {
+            return Ok(HistorySyncResult {
+                fetched_count: 0,
+                page_count: 0,
+                stop: HistorySyncStop::UnsupportedChannel,
+            });
+        }
+
+        ChatUpdater::new(&self.conn.session, &self.conn.pool, id)
+            .update_bounded(room.last_log_id)
+            .await
     }
 
     pub fn channel(&self, id: i64) -> ChannelOp<'_> {
