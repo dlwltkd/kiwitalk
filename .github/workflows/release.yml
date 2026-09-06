@@ -57,9 +57,9 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 16
+          node-version: 20
 
-      - uses: pnpm/action-setup@v2
+      - uses: pnpm/action-setup@v4
         with:
             version: 9
 
@@ -71,7 +71,7 @@ jobs:
         if: matrix.platform.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
 
       - uses: Swatinem/rust-cache@v2
 
@@ -82,33 +82,29 @@ jobs:
         with:
           path: tmp_tauri.conf.json
           contents: >
-            {"package": {"version": "${{ needs.draft.outputs.version }}"}}
+            {"version": "${{ needs.draft.outputs.version }}"}
           write-mode: overwrite
 
       - uses: tauri-apps/tauri-action@v0
         with:
           releaseId: ${{ needs.draft.outputs.release_id }}
           args: "--target ${{ matrix.platform.rust_target }} --config tmp_tauri.conf.json"
-          updaterJsonPreferNsis: true
         env:
           CARGO_TARGET_DIR: ${{ github.workspace }}/target
           GITHUB_TOKEN: ${{ github.token }}
-          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-          
 
   publish:
     needs: [draft, build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - run: |
           git config user.name 'KiwiTalk Continuous Integration'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
 
       - uses: dtolnay/rust-toolchain@stable
-      
+
       - uses: Swatinem/rust-cache@v2
 
       - name: install cargo-release
