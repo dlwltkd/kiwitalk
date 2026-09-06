@@ -1,58 +1,71 @@
-import { classes, vars } from '@/features/theme';
 import { style } from '@vanilla-extract/css';
 
+import { vars } from '@/features/theme';
+
 export const container = style({
-  position: 'absolute',
-  bottom: 0,
-  left: 0,
-
-  width: '100%',
-
-  display: 'flex',
-  flexDirection: 'row',
-  justifyContent: 'flex-start',
-  alignItems: 'flex-end',
-  gap: '8px',
-
-  padding: '24px 32px',
-
-  background: `linear-gradient(
-    0deg,
-    ${vars.color.neutral.darkAlpha500} 0%,
-    ${vars.color.neutral.darkAlpha200} 50%,
-    transparent 100%
-  )`,
+  minHeight: '46px',
+  display: 'grid',
+  gridTemplateColumns: '18px minmax(0, 1fr) auto',
+  alignItems: 'end',
+  gap: '6px',
+  padding: '8px 10px',
+  color: vars.color.terminal.foreground,
+  background: vars.color.terminal.surface,
+  borderTop: `1px solid ${vars.color.terminal.border}`,
 });
 
-export const input = style([classes.typography.title, {
+export const prompt = style({
+  alignSelf: 'center',
+  color: vars.color.terminal.accentBright,
+  fontSize: '13px',
+  fontWeight: 800,
+});
+
+export const input = style({
   width: '100%',
-
-  height: 'auto',
-  minHeight: '44px',
-  maxHeight: `${18 * 5 + 24}px`,
-
-  padding: '12px 20px',
-  scrollPaddingBlock: '12px',
-
-  color: vars.color.solidSecondary.fillPrimary,
-  borderRadius: vars.radius.regular,
-  background: vars.color.solidSecondary.background,
-
-  overflowY: 'hidden',
-  wordWrap: 'break-word',
+  minHeight: '28px',
+  maxHeight: '104px',
+  padding: '6px 8px',
+  color: vars.color.terminal.foregroundBright,
+  background: vars.color.terminal.background,
+  border: `1px solid ${vars.color.terminal.border}`,
+  fontSize: '11px',
+  lineHeight: '15px',
+  overflowY: 'auto',
+  resize: 'none',
+  whiteSpace: 'pre-wrap',
+  wordBreak: 'break-word',
 
   selectors: {
+    '&:focus': {
+      borderColor: vars.color.terminal.accent,
+    },
     '&::placeholder': {
-      color: vars.color.solidSecondary.fillSecondary,
+      color: vars.color.terminal.foregroundMuted,
+      opacity: 0.58,
+    },
+    '&:disabled': {
+      opacity: 0.5,
     },
   },
-}]);
+});
 
 export const button = style({
-  padding: '12px',
-  fontSize: '20px',
+  minHeight: '28px',
+  padding: '0 7px',
+  color: vars.color.terminal.accentBright,
+  border: `1px solid ${vars.color.terminal.border}`,
+  fontSize: '9px',
+  whiteSpace: 'nowrap',
 
-  color: vars.color.solidSecondary.attention,
-  background: vars.color.solidSecondary.background,
-  borderRadius: vars.radius.regular,
+  selectors: {
+    '&:hover': {
+      color: vars.color.terminal.background,
+      background: vars.color.terminal.accentBright,
+    },
+    '&:disabled': {
+      cursor: 'default',
+      opacity: 0.5,
+    },
+  },
 });
