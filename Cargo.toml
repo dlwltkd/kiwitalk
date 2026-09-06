@@ -2,6 +2,7 @@
 resolver = "2"
 
 members = ["./backend/bin/*", "./backend/crates/*"]
+exclude = ["./vendor/futures-loco-protocol"]
 
 [workspace.package]
 version = "0.5.1"
@@ -30,3 +31,6 @@ path = "./backend/crates/talk-api-internal"
 [workspace.dependencies.talk-loco-client]
 version = "0.6.1"
 path = "./backend/crates/talk-loco-client"
+
+[patch.crates-io]
+futures-loco-protocol = { path = "./vendor/futures-loco-protocol" }
