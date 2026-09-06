@@ -9,7 +9,7 @@ export const container = style({
   flexDirection: 'column',
   justifyContent: 'flex-start',
   alignItems: 'stretch',
-  gap: '10px',
+  gap: '5px',
 });
 
 export const replyContainer = style({
@@ -21,8 +21,8 @@ export const replyContainer = style({
   alignItems: 'flex-start',
   gap: '4px',
 
-  paddingLeft: '20px',
-  margin: '0 -8px',
+  padding: '3px 6px 3px 12px',
+  margin: 0,
   borderRadius: vars.radius.small,
   cursor: 'pointer',
 
@@ -30,31 +30,31 @@ export const replyContainer = style({
 
   selectors: {
     '&:hover': {
-      backgroundColor: vars.color.primary.elevated,
+      backgroundColor: vars.color.terminal.surfaceHover,
     },
     '&:active': {
-      backgroundColor: vars.color.primary.elevated,
+      backgroundColor: vars.color.terminal.surfaceHover,
     },
   },
 });
 export const replyText = styleVariants({
   sender: [classes.typography.body, {
     fontWeight: 700,
-    color: vars.color.primary.fillSecondary,
+    color: vars.color.terminal.accent,
   }],
   content: [classes.typography.body, {
-    color: vars.color.primary.fillSecondary,
+    color: vars.color.terminal.foregroundMuted,
   }],
 });
 
 export const replyDivider = style({
   position: 'absolute',
-  top: '6px',
-  bottom: '6px',
-  left: '8px',
+  top: '3px',
+  bottom: '3px',
+  left: '3px',
 
   width: '2px',
 
-  backgroundColor: vars.color.primary.fillSecondary,
+  backgroundColor: vars.color.terminal.accent,
   borderRadius: vars.radius.full,
 });
