@@ -17,6 +17,15 @@ use crate::{
 
 use self::{chat_on::ChatOnChannel, info::ChannelInfo};
 
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+pub struct SyncChatResponse {
+    #[serde(default, rename = "isOK")]
+    pub is_ok: bool,
+
+    #[serde(default, rename = "chatLogs")]
+    pub chatlogs: Option<Vec<Chatlog>>,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct TalkChannel<'a> {
     pub session: &'a LocoSession,
@@ -109,42 +118,47 @@ impl<'a> TalkChannel<'a> {
         .await
     }
 
+    pub async fn sync_chat_page(
+        self,
+        current_log_id: i64,
+        max_log_id: i64,
+        count: i32,
+    ) -> RequestResult<SyncChatResponse> {
+        request!(self.session, "SYNCMSG", bson {
+            "chatId": self.id,
+            "cur": current_log_id,
+            "max": max_log_id,
+            "cnt": count,
+        }, SyncChatResponse)
+        .await
+    }
+
     pub fn sync_chat_stream(
         self,
         current_log_id: i64,
         max_log_id: i64,
         count: i32,
     ) -> impl Stream<Item = RequestResult<Vec<Chatlog>>> + 'a {
-        #[derive(Deserialize)]
-        struct Response {
-            #[serde(rename = "isOK")]
-            pub is_ok: bool,
-
-            /// Chatlog list
-            #[serde(rename = "chatLogs")]
-            pub chatlogs: Option<Vec<Chatlog>>,
-        }
-
         try_stream!({
             let mut current = current_log_id;
 
             loop {
-                let res = request!(self.session, "SYNCMSG", bson {
-                    "chatId": self.id,
-                    "cur": current,
-                    "max": max_log_id,
-                    "cnt": count,
-                }, Response)
-                .await?;
+                let res = self.sync_chat_page(current, max_log_id, count).await?;
 
-                match res.chatlogs {
-                    Some(logs) if !logs.is_empty() => {
-                        current = logs.last().unwrap().log_id;
-                        yield logs;
-                    }
+                let chatlogs = res.chatlogs.unwrap_or_default();
 
-                    _ => return,
+                if chatlogs.is_empty() {
+                    return;
                 }
+
+                let next = chatlogs.iter().map(|chatlog| chatlog.log_id).max().unwrap();
+
+                if next <= current {
+                    return;
+                }
+
+                current = next;
+                yield chatlogs;
 
                 if res.is_ok || current >= max_log_id {
                     return;
