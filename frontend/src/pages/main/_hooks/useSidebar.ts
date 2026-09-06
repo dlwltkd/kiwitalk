@@ -1,11 +1,14 @@
-import { Accessor, createSignal, createResource } from 'solid-js';
-import { getChannelList } from '@/api';
+import { Accessor, createEffect, createResource, createSignal, on } from 'solid-js';
+import { getChannelList, KiwiTalkEvent } from '@/api';
 
-export const useSidebar = (isReady: Accessor<boolean>) => {
+export const useSidebar = (
+  isReady: Accessor<boolean>,
+  event: Accessor<KiwiTalkEvent | null>,
+) => {
   // FIXME create @/features/config and migrate to useConfiguration
   const [isNotificationActive, setIsNotificationActive] = createSignal(false);
 
-  const [badges] = createResource(isReady, async (isReady) => {
+  const [badges, { refetch }] = createResource(isReady, async (isReady) => {
     if (!isReady) {
       return {
         chat: '...',
@@ -27,6 +30,10 @@ export const useSidebar = (isReady: Accessor<boolean>) => {
       open: openChatBadge,
     };
   });
+
+  createEffect(on(event, (incoming) => {
+    if (isReady() && incoming?.type === 'Channel') void refetch();
+  }));
 
   return {
     badges: () => badges(),
