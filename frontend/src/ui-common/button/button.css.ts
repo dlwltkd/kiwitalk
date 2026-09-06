@@ -1,87 +1,70 @@
-import { classes, vars } from '@/features/theme';
-import { ComplexStyleRule, style, styleVariants } from '@vanilla-extract/css';
+import { style, styleVariants } from '@vanilla-extract/css';
 
-export const baseButton = style([classes.typography.head3, {
-  position: 'relative',
+import { vars } from '@/features/theme';
 
+export const baseButton = style({
+  minHeight: '30px',
   display: 'inline-flex',
-  justifyContent: 'center',
   alignItems: 'center',
-  gap: '10px',
+  justifyContent: 'center',
+  gap: '7px',
+  padding: '5px 10px',
+  border: '1px solid transparent',
+  fontSize: '10px',
+  fontWeight: 700,
+  lineHeight: '18px',
+  textTransform: 'uppercase',
+  transition: `color ${vars.easing.fill}, background ${vars.easing.background}, border-color ${vars.easing.background}`,
 
-  padding: '12px 18px',
-}]);
-
-const basePseudoElement: ComplexStyleRule = {
-  position: 'absolute',
-  content: '',
-  inset: 0,
-  zIndex: -1,
-
-  borderRadius: vars.radius.full,
-
-  transition: `background-color ${vars.easing.background}`,
-};
+  selectors: {
+    '&:disabled': {
+      cursor: 'default',
+      opacity: 0.45,
+    },
+  },
+});
 
 export const button = styleVariants({
   primary: [baseButton, {
-    backgroundColor: vars.color.primary.background,
-    color: vars.color.primary.fillPrimary,
-
-    zIndex: 0,
-    borderRadius: vars.radius.full,
-
+    color: vars.color.terminal.background,
+    background: vars.color.terminal.accentBright,
+    borderColor: vars.color.terminal.accentBright,
     selectors: {
-      '&::before': basePseudoElement,
-      '&::after': basePseudoElement,
-      '&:hover::before, &:active::after': {
-        backgroundColor: vars.color.primary.elevated,
+      '&:hover:not(:disabled)': {
+        background: vars.color.terminal.foregroundBright,
+        borderColor: vars.color.terminal.foregroundBright,
       },
     },
   }],
   secondary: [baseButton, {
-    backgroundColor: vars.color.secondary.background,
-    color: vars.color.secondary.fillPrimary,
-
-    zIndex: 0,
-    borderRadius: vars.radius.full,
-
+    color: vars.color.terminal.foreground,
+    background: vars.color.terminal.surfaceRaised,
+    borderColor: vars.color.terminal.border,
     selectors: {
-      '&::before': basePseudoElement,
-      '&::after': basePseudoElement,
-      '&:hover::before, &:active::after': {
-        backgroundColor: vars.color.secondary.elevated,
+      '&:hover:not(:disabled)': {
+        color: vars.color.terminal.foregroundBright,
+        borderColor: vars.color.terminal.accent,
       },
     },
   }],
   text: [baseButton, {
-    backgroundColor: 'transparent',
-    color: vars.color.overlay.fillPrimary,
-
-    zIndex: 0,
-    borderRadius: vars.radius.full,
-
+    color: vars.color.terminal.foregroundMuted,
+    background: 'transparent',
     selectors: {
-      '&::before': basePseudoElement,
-      '&::after': basePseudoElement,
-      '&:hover::before, &:active::after': {
-        backgroundColor: vars.color.overlay.background,
+      '&:hover:not(:disabled)': {
+        color: vars.color.terminal.accentBright,
+        background: vars.color.terminal.surfaceHover,
       },
     },
   }],
   glass: [baseButton, {
-    backgroundColor: vars.color.glassSecondary.background,
-    color: vars.color.glassSecondary.fillPrimary,
-
-    zIndex: 0,
-    borderRadius: vars.radius.full,
-    backdropFilter: vars.blur.regular,
-    WebkitBackdropFilter: vars.blur.regular,
-
+    color: vars.color.terminal.foreground,
+    background: vars.color.terminal.surface,
+    borderColor: vars.color.terminal.border,
     selectors: {
-      '&::before': basePseudoElement,
-      '&:hover::before, &:active::before': {
-        backgroundColor: vars.color.glassSecondary.attention,
+      '&:hover:not(:disabled)': {
+        color: vars.color.terminal.accentBright,
+        background: vars.color.terminal.surfaceHover,
       },
     },
   }],
