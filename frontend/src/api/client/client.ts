@@ -1,25 +1,29 @@
-import { tauri } from '@tauri-apps/api';
+import { invoke } from '@tauri-apps/api/core';
 
 import { ChannelListItem, ClientStatus, KiwiTalkEvent } from '../_types';
 
 export function created(): Promise<boolean> {
-  return tauri.invoke('plugin:client|created');
+  return invoke('plugin:client|created');
 }
 
 export function create(status: ClientStatus): Promise<number> {
-  return tauri.invoke('plugin:client|create', { status });
+  return invoke('plugin:client|create', { status });
+}
+
+export function reconnect(status: ClientStatus): Promise<number> {
+  return invoke('plugin:client|reconnect', { status });
 }
 
 export function destroy(): Promise<void> {
-  return tauri.invoke('plugin:client|destroy');
+  return invoke('plugin:client|destroy');
 }
 
 export function nextEvent(): Promise<KiwiTalkEvent | null> {
-  return tauri.invoke('plugin:client|next_event');
+  return invoke('plugin:client|next_event');
 }
 
 export function getChannelList(): Promise<[string, ChannelListItem][]> {
-  return tauri.invoke('plugin:client|channel_list');
+  return invoke('plugin:client|channel_list');
 }
 
 export async function* createMainEventStream(): AsyncGenerator<KiwiTalkEvent> {
