@@ -1,5 +1,6 @@
 import {
   JSX,
+  Show,
   createEffect,
   createMemo,
   createRenderEffect,
@@ -10,78 +11,84 @@ import {
 
 import { ChannelUser, Chatlog } from '@/api/client';
 import { VirtualList, VirtualListRef } from '@/ui-common/virtual-list';
+import { MessageGroup } from '../message-group';
 
 import * as styles from './message-list.css';
-import { MessageGroup } from '../message-group';
 
 export type MessageListProps = {
   scroller?: (ref: VirtualListRef) => void;
-
   channelId: string;
   messageGroups: Chatlog[][];
   members: Record<string, ChannelUser>;
-
   logonId?: string;
   isEnd?: boolean;
-
+  loading?: boolean;
+  error?: string | null;
   onLoadMore?: () => void;
 };
+
 export const MessageList = (props: MessageListProps) => {
-  const [isStickBottom, setIsStickBottom] = createSignal(true);
+  const [stickToBottom, setStickToBottom] = createSignal(true);
+  const members = createMemo(() => Object.values(props.members));
 
-  const members = createMemo(on(() => props.members, (members) => Object.values(members)));
-
-  createRenderEffect(on(() => props.channelId, () => {
-    setIsStickBottom(true);
-  }));
-
+  createRenderEffect(on(() => props.channelId, () => setStickToBottom(true)));
   createEffect(on(() => props.messageGroups.length, (length) => {
-    if (length > 0 && isStickBottom()) {
-      requestAnimationFrame(() => {
-        setIsStickBottom(false);
-      });
+    if (length > 0 && stickToBottom()) {
+      requestAnimationFrame(() => setStickToBottom(false));
     }
   }, { defer: false }));
 
-  let isLoaded = true;
   const onScroll: JSX.EventHandlerUnion<HTMLUListElement, Event> = (event) => {
-    if (!props.isEnd && !isLoaded && event.target.scrollTop <= 0) {
-      isLoaded = true;
+    if (!props.isEnd && !props.loading && event.currentTarget.scrollTop <= 24) {
       props.onLoadMore?.();
-    }
-
-    if (event.target.scrollTop > 0) {
-      isLoaded = false;
     }
   };
 
   return (
-    <VirtualList
-      reverse
-      component={'ul'}
-      ref={props.scroller}
-      items={props.messageGroups}
-      class={styles.virtualList.outer}
-      innerClass={styles.virtualList.inner}
-      topMargin={32 + 64 + 16}
-      bottomMargin={24 + 44 + 16}
-      estimatedItemHeight={75 * 5}
-      alignToBottom={isStickBottom()}
-      onScroll={onScroll}
-    >
-      {(item) => {
-        const senderId = untrack(() => item![0].senderId);
+    <div class={styles.container}>
+      <Show when={props.error}>
+        <div class={styles.notice.error}>! {props.error}</div>
+      </Show>
+      <Show when={props.loading}>
+        <div class={styles.notice.loading}>… loading transcript</div>
+      </Show>
+      <Show when={props.isEnd && props.messageGroups.length > 0}>
+        <div class={styles.notice.end}>— beginning of local history —</div>
+      </Show>
+      <Show when={!props.loading && !props.error && props.messageGroups.length === 0}>
+        <div class={styles.empty}>
+          <span class={styles.emptyCommand}>$ history --local</span>
+          <span>no messages are stored for this channel yet</span>
+        </div>
+      </Show>
 
-        return (
-          <MessageGroup
-            profile={props.members[senderId]?.profileUrl}
-            sender={props.members[senderId]?.nickname}
-            isMine={senderId === props.logonId}
-            messages={item!}
-            members={members()}
-          />
-        );
-      }}
-    </VirtualList>
+      <VirtualList
+        reverse
+        component="ul"
+        ref={props.scroller}
+        items={props.messageGroups}
+        class={styles.virtualList.outer}
+        innerClass={styles.virtualList.inner}
+        topMargin={8}
+        bottomMargin={8}
+        estimatedItemHeight={72}
+        alignToBottom={stickToBottom()}
+        onScroll={onScroll}
+      >
+        {(group) => {
+          const senderId = untrack(() => group![0].senderId);
+          const mine = senderId === props.logonId;
+
+          return (
+            <MessageGroup
+              sender={props.members[senderId]?.nickname ?? (mine ? 'you' : 'peer')}
+              isMine={mine}
+              messages={group!}
+              members={members()}
+            />
+          );
+        }}
+      </VirtualList>
+    </div>
   );
 };
