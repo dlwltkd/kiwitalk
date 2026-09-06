@@ -19,4 +19,9 @@ The bundled Pretendard font is licensed separately under the SIL Open Font
 License, Version 1.1. Its copyright notices and license are included in
 frontend/public/fonts/OFL.txt.
 
+The bundled futures-loco-protocol 0.4.0 library is derived from
+https://github.com/storycraft/futures-loco-protocol/ and is licensed under MIT.
+Its license and local changes are recorded in
+vendor/futures-loco-protocol/LICENSE and vendor/futures-loco-protocol/PATCHES.md.
+
 KiwiTalk is not affiliated with or endorsed by Kakao Corp.
