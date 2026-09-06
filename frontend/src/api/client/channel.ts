@@ -1,4 +1,4 @@
-import { tauri } from '@tauri-apps/api';
+import { invoke } from '@tauri-apps/api/core';
 
 export type Chatlog = {
   /** bigint */
@@ -58,15 +58,36 @@ type OpenChannelKind = {
 export type Channel = NormalChannelKind | OpenChannelKind;
 
 export async function loadChannel(id: string): Promise<Channel> {
-  return tauri.invoke('plugin:client|load_channel', { id });
+  return invoke('plugin:client|load_channel', { id });
 }
 
 export async function sendText(id: string, text: string): Promise<Chatlog> {
-  return await tauri.invoke('plugin:client|channel_send_text', { id, text });
+  return await invoke('plugin:client|channel_send_text', { id, text });
 }
 
 export async function normalChannelReadChat(id: string, logId: string) {
-  await tauri.invoke('plugin:client|normal_channel_read_chat', { id, logId });
+  await invoke('plugin:client|normal_channel_read_chat', { id, logId });
+}
+
+export type HistorySyncStopReason =
+  | 'upToDate'
+  | 'serverComplete'
+  | 'reachedTarget'
+  | 'emptyBatch'
+  | 'noProgress'
+  | 'pageLimit'
+  | 'timeLimit'
+  | 'unsupportedChannel';
+
+export type HistorySyncResult = {
+  fetchedCount: number;
+  pageCount: number;
+  complete: boolean;
+  stopReason: HistorySyncStopReason;
+};
+
+export function syncChannelHistory(id: string): Promise<HistorySyncResult> {
+  return invoke('plugin:client|channel_sync_history', { id });
 }
 
 export async function loadChat(
@@ -75,7 +96,7 @@ export async function loadChat(
   fromLogId?: string,
   exclusive: boolean = false,
 ): Promise<Chatlog[]> {
-  return await tauri.invoke(
+  return await invoke(
     'plugin:client|channel_load_chat',
     { id, count, exclusive, fromLogId },
   );
