@@ -3,12 +3,7 @@ import { Outlet, useLocation, useMatch, useNavigate } from '@solidjs/router';
 import { useTransContext } from '@jellybrick/solid-i18next';
 
 import { defaultLoginForm } from '@/api';
-import { KiwiBackground } from './_components/kiwi-background';
 import { LoginStepper } from './_components/login-stepper';
-
-import IconLock from './_assets/icons/lock.svg';
-import IconPhoneLock from './_assets/icons/phone-lock.svg';
-import IconLaunch from './_assets/icons/launch.svg';
 
 import * as styles from './page.css';
 
@@ -33,30 +28,38 @@ export const LoginBasePage = () => {
     }
   });
 
-  const step = () => location.pathname.match(/login\/([^/]+)$/)?.[1];
+  const step = () => {
+    const route = location.pathname.match(/login\/([^/]+)$/)?.[1];
+    return route === 'list' ? 'login' : route;
+  };
   const steps = createMemo(() => [
     {
       id: 'login',
       title: t('login.title'),
-      icon: <IconLock />,
     },
     {
       id: 'device-register',
       title: t('login.register_title'),
-      icon: <IconPhoneLock />,
     },
     {
       id: 'end',
       title: t('login.end_title'),
-      icon: <IconLaunch />,
     },
   ]);
 
   return (
     <main class={styles.container}>
-      <KiwiBackground />
+      <header class={styles.header}>
+        <span><strong class={styles.headerUser}>auth</strong>@kiwitalk:~$ session --android</span>
+        <span>encrypted transport</span>
+      </header>
       <section class={styles.contentContainer}>
         <div class={styles.infoContainer}>
+          <div class={styles.wordmark}>kiwi<span class={styles.wordmarkAccent}>//talk</span></div>
+          <p class={styles.description}>
+            native kakao client<br />
+            loco protocol / android subdevice
+          </p>
           <LoginStepper
             enableBack={enableBack()}
             steps={steps()}
@@ -64,8 +67,11 @@ export const LoginBasePage = () => {
             onBack={() => navigate(-1)}
           />
         </div>
-        <Outlet />
+        <div class={styles.panel}>
+          <Outlet />
+        </div>
       </section>
+      <footer class={styles.footer}>password memory: native process // password persistence: disabled</footer>
     </main>
   );
 };
