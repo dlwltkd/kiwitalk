@@ -9,11 +9,12 @@ license = "Apache-2.0"
 authors = ["KiwiTalk contributors"]
 edition = "2021"
 repository = "https://github.com/KiwiTalk/KiwiTalk"
-rust-version = "1.57"
+rust-version = "1.88.0"
 
 [workspace.dependencies]
 tokio = "1"
-tauri = "1.6.2"
+tauri = "2.11.5"
+tauri-plugin-notification = "2.3.3"
 log = "0.4.20"
 anyhow = "1.0.82"
 serde = { version = "1.0.200", features = ["derive"] }
