@@ -11,6 +11,9 @@ export const error = style([classes.typography.body, {
   gap: '8px',
 
   alignSelf: 'flex-start',
+  padding: '5px 7px',
+  border: `1px solid ${vars.color.red400}`,
+  background: vars.color.terminal.background,
 }]);
 
 export const errorIcon = style([classes.typography.body, {
@@ -21,7 +24,5 @@ export const errorIcon = style([classes.typography.body, {
   justifyContent: 'center',
   alignItems: 'center',
 
-  borderRadius: vars.radius.full,
-  color: vars.color.neutral.white,
-  backgroundColor: vars.color.red400,
+  color: vars.color.red400,
 }]);
