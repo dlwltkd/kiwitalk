@@ -1,35 +1,9 @@
-import {
-  For,
-  Match,
-  Suspense,
-  Switch,
-  createEffect,
-  createResource,
-  createSignal,
-  on,
-} from 'solid-js';
-import { Trans } from '@jellybrick/solid-i18next';
+import { For } from 'solid-js';
 
 import { ChannelUser, Chatlog } from '@/api/client';
-import { Profile } from '@/pages/main/_components/profile';
 import { Message } from '../message/message';
 
 import * as styles from './message-group.css';
-import { useChatFactory } from '../../_hooks/useChatFactory';
-import { Loader } from '@/ui-common/loader';
-
-const isDateDiff = (a: number, b: number) => {
-  const aDate = new Date(a * 1000);
-  const bDate = new Date(b * 1000);
-
-  return (
-    aDate.getFullYear() !== bDate.getFullYear() ||
-    aDate.getMonth() !== bDate.getMonth() ||
-    aDate.getDate() !== bDate.getDate() ||
-    aDate.getHours() !== bDate.getHours() ||
-    aDate.getMinutes() !== bDate.getMinutes()
-  );
-};
 
 export type MessageGroupProps = {
   profile?: string;
@@ -38,88 +12,51 @@ export type MessageGroupProps = {
   messages: Chatlog[];
   members: ChannelUser[];
 };
+
 export const MessageGroup = (props: MessageGroupProps) => {
-  const factory = useChatFactory();
-
-  const [isFailed, setIsFailed] = createSignal(false);
-
   const variant = () => props.isMine ? 'mine' : 'other';
-  const isShowTime = (index: number) => {
-    if (index === 0) return true;
 
-    const current = props.messages[index];
-    const next = props.messages[index + 1];
+  const content = (message: Chatlog) => {
+    if (message.content) return message.content;
 
-    if (!current || !next) return false;
+    if ([2, 27].includes(message.chatType)) return '[image]';
+    if ([6, 12, 20, 25].includes(message.chatType)) return '[emoticon]';
+    if (message.attachment) return '[attachment]';
 
-    return isDateDiff(current.sendAt, next.sendAt);
+    return `[message type ${message.chatType}]`;
   };
-  const isBubble = (type: number) => {
-    if (type === 0) return false; // feed
-    if (type === 2) return false; // single image
-    if (type === 6) return false; // emoticon (gif) (legacy)
-    if (type === 12) return false; // emoticon
-    if (type === 20) return false; // emoticon (webp)
-    if (type === 25) return false; // emoticon (gif)
-    if (type === 27) return false; // multiple image
 
-    return true;
-  };
   const getUnreadCount = (chat: Chatlog) => {
-    const count = props.members
-      .filter((user) => BigInt(user.watermark) < BigInt(chat.logId))
-      .length;
+    try {
+      const count = props.members
+        .filter((user) => BigInt(user.watermark) < BigInt(chat.logId))
+        .length;
 
-    return count > 0 ? count : undefined;
-  };
-
-  let timeout: number | null = null;
-  createEffect(on(() => props.sender, (sender) => {
-    if (typeof timeout === 'number') clearTimeout(timeout);
-    if (sender) {
-      setIsFailed(false);
-      return;
+      return count > 0 ? count : undefined;
+    } catch {
+      return undefined;
     }
-
-    timeout = window.setTimeout(() => {
-      setIsFailed(true);
-    }, 3000);
-  }));
+  };
 
   return (
-    <div class={styles.container[variant()]}>
-      <Profile src={props.profile} />
-      <div class={styles.messageContainer}>
-        <For each={props.messages}>
-          {(message, index) => {
-            const [renderer] = createResource(async () => factory()?.create(message));
-
-            return (
-              <Message
-                isMine={props.isMine}
-                isBubble={isBubble(message.chatType)}
-                isConnected={index() !== 0}
-                time={isShowTime(index()) ? message.sendAt : undefined}
-                unread={getUnreadCount(message)}
-              >
-                <Suspense fallback={<Loader />}>
-                  {renderer()}
-                </Suspense>
-              </Message>
-            );
-          }}
+    <section class={styles.container}>
+      <header class={styles.sender[variant()]}>
+        <span>{props.isMine ? 'you' : 'usr'}</span>
+        <span class={styles.senderName}>{props.sender || (props.isMine ? 'you' : 'peer')}</span>
+      </header>
+      <ul class={styles.messageContainer}>
+        <For each={props.messages.toReversed()}>
+          {(message) => (
+            <Message
+              isMine={props.isMine}
+              time={message.sendAt}
+              unread={getUnreadCount(message)}
+            >
+              {content(message)}
+            </Message>
+          )}
         </For>
-        <div class={styles.sender[variant()]}>
-          <Switch fallback={<Loader />}>
-            <Match when={isFailed()}>
-              <Trans key={'common.unknown'} />
-            </Match>
-            <Match when={props.sender}>
-              {props.sender}
-            </Match>
-          </Switch>
-        </div>
-      </div>
-    </div>
+      </ul>
+    </section>
   );
 };
