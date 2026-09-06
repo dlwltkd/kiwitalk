@@ -14,6 +14,13 @@ diesel::table! {
 }
 
 diesel::table! {
+    channel_history_sync (channel_id) {
+        channel_id -> BigInt,
+        cursor -> BigInt,
+    }
+}
+
+diesel::table! {
     channel_meta (channel_id, type_) {
         channel_id -> BigInt,
         #[sql_name = "type"]
@@ -77,6 +84,7 @@ diesel::table! {
 
 diesel::allow_tables_to_appear_in_same_query!(
     channel_list,
+    channel_history_sync,
     channel_meta,
     chat,
     normal_channel,
