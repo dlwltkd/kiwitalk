@@ -1,163 +1,118 @@
 import {
   Show,
-  createEffect,
-  createMemo,
   createResource,
   createSignal,
-  getOwner,
-  on,
 } from 'solid-js';
-import { useParams } from '@solidjs/router';
+import { useNavigate, useParams } from '@solidjs/router';
 import { useTransContext } from '@jellybrick/solid-i18next';
 
-import { VirtualListRef } from '@/ui-common/virtual-list';
-import { ChatEmpty } from './_components/chat-empty';
-import { MessageList } from './_components/message-list';
-import { MessageInput } from './_components/message-input';
-import { ChannelHeader } from '../_components/channel-header';
-
 import { getChannelList, meProfile } from '@/api';
+import { sendText } from '@/api/client';
+import { VirtualListRef } from '@/ui-common/virtual-list';
 import { useReady } from '@/pages/main/_hooks';
+import { ChannelHeader } from '../_components/channel-header';
+import { ChatEmpty } from './_components/chat-empty';
+import { MessageInput } from './_components/message-input';
+import { MessageList } from './_components/message-list';
 import { useChannel, useChannelMembers, useMessageList } from './_hooks';
 
 import * as styles from './page.css';
-import { ChatFactoryContext } from './_hooks/useChatFactory';
-import { ChatFactory } from './_utils/chat-factory';
-import { normalChannelReadChat, sendText } from '@/api/client';
-import { dispatchSelfEvent } from '../../_utils';
 
-export const ChatPage = () => {
+type ActiveChatProps = {
+  channelId: string;
+};
+
+const ActiveChat = (props: ActiveChatProps) => {
   const isReady = useReady();
   const [t] = useTransContext();
-  const params = useParams();
-  const channelId = () => params.channelId;
-  const channel = useChannel(channelId);
-  const members = useChannelMembers(channelId);
-  const [messageGroups, loadMoreMessages, isLoadEnd] = useMessageList(channelId);
-
+  const navigate = useNavigate();
+  const channelId = () => props.channelId;
+  const channelState = useChannel(channelId);
+  const channel = channelState.channel;
+  const members = useChannelMembers(channelId, channel);
+  const transcript = useMessageList(channelId);
+  const [sendError, setSendError] = createSignal<string | null>(null);
+  const [observedSelfId, setObservedSelfId] = createSignal<string | undefined>();
   const [scroller, setScroller] = createSignal<VirtualListRef | null>(null);
 
-  /* defines */
-  const channelFactory = createMemo(on(
-    channel,
-    (channel) => channel && new ChatFactory(channel, getOwner()),
-  ));
-
-  const [me] = createResource(isReady, async (ready) => {
-    if (!ready) return null;
-
-    return meProfile();
-  });
+  const [me] = createResource(isReady, async (ready) => ready ? meProfile() : null);
   const [channelInfo] = createResource(
-    () => [isReady(), channelId()] as const,
+    () => [isReady(), props.channelId] as const,
     async ([ready, id]) => {
-      if (!ready || !id) return null;
+      if (!ready) return null;
 
-      const channelMap = Object.fromEntries(await getChannelList());
-
-      return channelMap[id];
+      return Object.fromEntries(await getChannelList())[id] ?? null;
     },
   );
 
-  /* lifecycle */
-  let isInit = false;
-  createEffect(on(messageGroups, (messageList) => {
-    if (!isInit) {
-      isInit = true;
-      return;
-    }
-    if (messageList.length === 0) isInit = false;
-    const [start] = scroller()?.range() ?? [0, 0];
-
-    if (start <= 0) {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => { // queue this task as last as possible
-          scrollToBottom();
-        });
-      });
-    }
-  }));
-
-  /* callbacks */
   const scrollToBottom = () => {
-    const scrollElement = scroller()?.element;
-    if (!scrollElement) return;
+    const element = scroller()?.element;
+    if (!element) return;
 
-    scrollElement.scrollTo({
-      top: scrollElement.scrollHeight,
+    requestAnimationFrame(() => element.scrollTo({
+      top: element.scrollHeight,
       behavior: 'smooth',
-    });
+    }));
   };
-  const onLoadMore = () => {
-    const messageLength = messageGroups().length;
 
-    loadMoreMessages();
-    scroller()?.refresh();
+  const selfId = () => me()?.profile.id ?? observedSelfId();
 
-    setTimeout(() => {
-      scroller()?.scrollToIndex(
-        messageLength,
-        {
-          top: (32 + 64 + 16),
-          behavior: 'instant',
-        },
-      );
-    }, 16 * 1); // next frame
-  };
   const onSubmit = async (text: string) => {
-    const id = channelId();
-    const myId = me()?.profile.id;
-    if (typeof id !== 'string' || typeof myId !== 'string') return;
+    setSendError(null);
+    try {
+      const result = await sendText(props.channelId, text);
+      setObservedSelfId(result.senderId);
 
-    const result = await sendText(id, text);
-    dispatchSelfEvent(id, {
-      type: 'Chat',
-      content: result,
-    });
-
-    if (channel()?.kind === 'normal') {
-      await normalChannelReadChat(id, result.logId);
-      dispatchSelfEvent(id, {
-        type: 'ChatRead',
-        content: {
-          userId: myId,
-          logId: result.logId,
-        },
-      });
-    }
-
-    if (result) {
       scrollToBottom();
+    } catch (error) {
+      setSendError('message was not sent; your draft is still here');
+      throw error;
     }
   };
 
   return (
-    <div class={styles.container}>
-      <Show when={channelId()} fallback={<ChatEmpty />}>
-        <ChannelHeader
-          name={channelInfo()?.name ?? '...'}
-          profile={channelInfo()?.profile?.imageUrl ??
-            (channelInfo()?.displayUsers.length === 1 ?
-              channelInfo()?.displayUsers[0].profileUrl :
-              undefined)}
-          members={channelInfo()?.userCount ?? 0}
-        />
-        <ChatFactoryContext.Provider value={channelFactory}>
-          <MessageList
-            scroller={setScroller}
-            channelId={channelId()!}
-            logonId={me()?.profile.id}
-            messageGroups={messageGroups()}
-            members={members() ?? {}}
-            isEnd={isLoadEnd()}
-            onLoadMore={onLoadMore}
-          />
-        </ChatFactoryContext.Provider>
-        <MessageInput
-          placeholder={t('main.chat.placeholder')}
-          onSubmit={onSubmit}
-        />
+    <section class={styles.container}>
+      <ChannelHeader
+        name={channelInfo()?.name?.trim() || 'untitled room'}
+        members={channelInfo()?.userCount ?? 0}
+        loading={channelInfo.loading}
+        onBack={() => navigate('/main/chat')}
+      />
+
+      <Show when={channelState.error()}>
+        <div class={styles.channelError}>! {channelState.error()}</div>
       </Show>
-    </div>
+
+      <MessageList
+        scroller={setScroller}
+        channelId={props.channelId}
+        logonId={selfId()}
+        messageGroups={transcript.messageGroups()}
+        members={members()}
+        isEnd={transcript.isEnd()}
+        loading={transcript.loading()}
+        error={transcript.error()}
+        onLoadMore={transcript.loadMore}
+      />
+
+      <Show when={sendError()}>
+        <div class={styles.commandError}>! {sendError()}</div>
+      </Show>
+      <MessageInput
+        placeholder={t('main.chat.placeholder')}
+        disabled={!isReady()}
+        onSubmit={onSubmit}
+      />
+    </section>
+  );
+};
+
+export const ChatPage = () => {
+  const params = useParams();
+
+  return (
+    <Show when={params.channelId} keyed fallback={<ChatEmpty />}>
+      {(channelId) => <ActiveChat channelId={channelId} />}
+    </Show>
   );
 };
