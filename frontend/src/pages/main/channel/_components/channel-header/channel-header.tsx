@@ -1,48 +1,33 @@
 import { Show } from 'solid-js';
-import { Trans } from '@jellybrick/solid-i18next';
 
-import { Profile } from '@/pages/main/_components/profile';
 import * as styles from './channel-header.css';
-
-import IconNotificationOff from '@/assets/icons/notification_off.svg';
-import IconNotificationOn from '@/assets/icons/notification.svg';
-import IconSearch from '@/assets/icons/search.svg';
-import IconMenu from '@/assets/icons/menu.svg';
-import { Loader } from '@/ui-common/loader';
-
 
 export type ChannelHeaderProps = {
   profile?: string;
   name?: string;
   members?: number;
   silent?: boolean;
+  loading?: boolean;
+  onBack?: () => void;
 };
-export const ChannelHeader = (props: ChannelHeaderProps) => {
-  return (
-    <div class={styles.container}>
-      <div class={styles.contentContainer}>
-        <Profile src={props.profile} />
-        <div class={styles.textContainer}>
-          <span class={styles.text.title}>
-            <Show when={props.name} fallback={<Loader />}>
-              {props.name}
-            </Show>
-          </span>
-          <span class={styles.text.subtitle}>
-            <Trans key={'main.chat.member_count'} options={{ count: props.members }} />
-            <span>
-              {'•'}
-            </span>
-            <Show when={props.silent} fallback={<IconNotificationOn />}>
-              <IconNotificationOff />
-            </Show>
-          </span>
-        </div>
-      </div>
-      <div class={styles.toolContainer}>
-        <IconSearch />
-        <IconMenu />
-      </div>
+
+export const ChannelHeader = (props: ChannelHeaderProps) => (
+  <header class={styles.container}>
+    <button class={styles.back} type="button" onClick={props.onBack} aria-label="Back to channels">
+      ‹
+    </button>
+    <div class={styles.identity}>
+      <span class={styles.prompt}>#</span>
+      <span class={styles.name}>{props.name || (props.loading ? 'loading...' : 'unnamed')}</span>
+      <Show when={(props.members ?? 0) > 0}>
+        <span class={styles.members}>{props.members} users</span>
+      </Show>
     </div>
-  );
-};
+    <div class={styles.flags}>
+      <Show when={props.silent}>
+        <span>muted</span>
+      </Show>
+      <span class={styles.live}>● live</span>
+    </div>
+  </header>
+);
