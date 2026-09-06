@@ -17,26 +17,36 @@ export const WindowControls = (props: WindowControlsProps) => {
 
   return (
     <div data-tauri-drag-region class={styles.container}>
-      <span data-tauri-drag-region class={styles.title}>KiwiTalk</span>
+      <div data-tauri-drag-region class={styles.identity}>
+        <span data-tauri-drag-region class={styles.prompt}>❯_</span>
+        <span data-tauri-drag-region class={styles.title}>kiwitalk</span>
+        <span data-tauri-drag-region class={styles.protocol}>native // loco</span>
+      </div>
       <div data-tauri-drag-region class={styles.buttons}>
         <button
           aria-label={t('window-controls.minimize')}
           class={styles.buttonMinMax[buttonVariant()]}
           onClick={props.onMinimize}
           type="button"
-        />
+        >
+          −
+        </button>
         <button
           aria-label={t('window-controls.maximize')}
           class={styles.buttonMinMax[buttonVariant()]}
           onClick={props.onMaximize}
           type="button"
-        />
+        >
+          □
+        </button>
         <button
           aria-label={t('window-controls.close')}
           class={styles.buttonClose[buttonVariant()]}
           onClick={props.onClose}
           type="button"
-        />
+        >
+          ×
+        </button>
       </div>
     </div>
   );
