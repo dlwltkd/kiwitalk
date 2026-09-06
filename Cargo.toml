@@ -8,7 +8,7 @@ version = "0.5.1"
 license = "Apache-2.0"
 authors = ["KiwiTalk contributors"]
 edition = "2021"
-repository = "https://github.com/KiwiTalk/KiwiTalk"
+repository = "https://github.com/dlwltkd/kiwitalk"
 rust-version = "1.88.0"
 
 [workspace.dependencies]
