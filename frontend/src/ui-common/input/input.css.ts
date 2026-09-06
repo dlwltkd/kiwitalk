@@ -1,60 +1,47 @@
 import { style } from '@vanilla-extract/css';
 
-import { classes, vars } from '@/features/theme';
+import { vars } from '@/features/theme';
 
 export const container = style({
-  display: 'flex',
-  flexDirection: 'row',
-  justifyContent: 'flex-start',
+  width: '100%',
+  minHeight: '34px',
+  display: 'grid',
+  gridTemplateColumns: '20px minmax(0, 1fr)',
   alignItems: 'center',
-  gap: '24px',
-
-  padding: '12px 16px',
-  borderRadius: vars.radius.small,
-
-  background: vars.color.glassSecondary.background,
-  color: vars.color.glassSecondary.fillSecondary,
-  backdropFilter: vars.blur.regular,
-  WebkitBackdropFilter: vars.blur.regular,
-
-  transition: `box-shadow ${vars.easing.background}`,
+  gap: '7px',
+  padding: '5px 8px',
+  color: vars.color.terminal.foregroundMuted,
+  background: vars.color.terminal.background,
+  border: `1px solid ${vars.color.terminal.border}`,
+  transition: `border-color ${vars.easing.background}`,
 
   selectors: {
-    '&:focus-within, &:focus': {
-      boxShadow: `0 0 0 2px inset ${vars.color.glassSecondary.attention}`,
+    '&:focus-within': {
+      borderColor: vars.color.terminal.accent,
     },
   },
 });
 
-export const input = style([classes.typography.head3, {
+export const input = style({
   width: '100%',
-  minHeight: '24px',
-
-  color: vars.color.glassSecondary.fillPrimary,
+  minWidth: 0,
+  color: vars.color.terminal.foregroundBright,
+  fontSize: '11px',
+  lineHeight: '20px',
 
   selectors: {
     '&::placeholder': {
-      color: vars.color.glassSecondary.fillSecondary,
+      color: vars.color.terminal.foregroundMuted,
+      opacity: 0.62,
     },
   },
-}]);
+});
 
 export const iconWrapper = style({
-  width: '24px',
-  height: '24px',
-
-  display: 'flex',
-  justifyContent: 'center',
-  alignItems: 'center',
-
-  fontSize: '24px',
-  color: vars.color.glassSecondary.fillSecondary,
-
-  transition: `color ${vars.easing.background}`,
-
-  selectors: {
-    'label:valid > &': {
-      color: vars.color.glassSecondary.fillPrimary,
-    },
-  },
+  width: '16px',
+  height: '16px',
+  display: 'grid',
+  placeItems: 'center',
+  color: vars.color.terminal.accent,
+  fontSize: '14px',
 });
