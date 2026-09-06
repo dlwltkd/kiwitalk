@@ -95,19 +95,26 @@ impl<'a> ChannelOp<'a> {
             })
             .await?;
 
-        let logged = res.chatlog.unwrap_or(Chatlog {
-            channel_id: self.id,
+        let logged = res.chatlog.unwrap_or_else(|| {
+            let mut chat = chat;
+            if res.msg_id != 0 {
+                chat.message_id = res.msg_id;
+            }
 
-            log_id: res.log_id,
-            prev_log_id: Some(res.prev_id),
+            Chatlog {
+                channel_id: self.id,
 
-            author_id: self.conn.user_id,
+                log_id: res.log_id,
+                prev_log_id: Some(res.prev_id),
 
-            send_at: res.send_at,
+                author_id: self.conn.user_id,
 
-            chat,
+                send_at: res.send_at,
 
-            referer: None,
+                chat,
+
+                referer: None,
+            }
         });
 
         self.conn
@@ -294,7 +301,7 @@ pub(crate) async fn load_list_item(
         .await?;
 
     let profile = match channel_type {
-        ChannelType::DirectChat | ChannelType::MultiChat => {
+        ChannelType::DirectChat | ChannelType::MultiChat | ChannelType::MemoChat => {
             normal::load_list_profile(pool, &display_users, row).await?
         }
 
@@ -303,7 +310,7 @@ pub(crate) async fn load_list_item(
 
     Ok(Some(ChannelListItem {
         channel_type,
-        last_chat: last_chat.map(Into::into),
+        last_chat,
         display_users,
         unread_count: row.unread_count,
         active_user_count: row.active_user_count,
