@@ -1,63 +1,112 @@
-import { classes, vars } from '@/features/theme';
-import { style, styleVariants } from '@vanilla-extract/css';
+import { style } from '@vanilla-extract/css';
+
+import { vars } from '@/features/theme';
 
 export const container = style({
-  position: 'relative',
   width: '100%',
-  height: 'calc(100% + 32px)',
-  marginTop: '-32px',
+  height: '100%',
+  minHeight: 0,
+  display: 'grid',
+  gridTemplateRows: '30px minmax(0, 1fr) 24px',
+  color: vars.color.terminal.foreground,
+  background: vars.color.terminal.background,
+});
+
+export const header = style({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: '12px',
+  padding: '0 10px',
+  color: vars.color.terminal.foregroundMuted,
+  background: vars.color.terminal.surface,
+  borderBottom: `1px solid ${vars.color.terminal.border}`,
+  fontSize: '9px',
+  textTransform: 'uppercase',
+
+});
+
+export const headerUser = style({
+  color: vars.color.terminal.accentBright,
 });
 
 export const contentContainer = style({
-  position: 'absolute',
-  inset: '0',
+  minWidth: 0,
+  minHeight: 0,
+  display: 'grid',
+  gridTemplateColumns: 'minmax(220px, 1fr) minmax(320px, 440px)',
+  alignItems: 'stretch',
 
-  width: '100%',
-  height: '100%',
-
-  display: 'flex',
-  flexDirection: 'row',
-  justifyContent: 'flex-start',
-  alignItems: 'flex-start',
-
-  padding: '72px 96px',
+  '@media': {
+    'screen and (max-width: 720px)': {
+      gridTemplateColumns: 'minmax(0, 1fr)',
+      gridTemplateRows: 'auto minmax(0, 1fr)',
+    },
+  },
 });
 
 export const infoContainer = style({
-  height: '100%',
-
-  flex: 1,
-
+  minWidth: 0,
   display: 'flex',
   flexDirection: 'column',
-  justifyContent: 'flex-start',
-  alignItems: 'flex-start',
-  gap: '18px',
+  padding: 'clamp(24px, 5vw, 72px)',
+  background: vars.color.terminal.background,
 
-  color: vars.color.solidPrimary.fillPrimary,
+  '@media': {
+    'screen and (max-width: 720px)': {
+      padding: '18px 20px 14px',
+      borderBottom: `1px solid ${vars.color.terminal.border}`,
+    },
+  },
 });
 
-export const iconWrapper = style({
+export const wordmark = style({
+  color: vars.color.terminal.foregroundBright,
+  fontSize: 'clamp(25px, 4vw, 48px)',
+  fontWeight: 800,
+  letterSpacing: '-0.08em',
+
+});
+
+export const wordmarkAccent = style({
+  color: vars.color.terminal.accentBright,
+});
+
+export const description = style({
+  marginTop: '12px',
+  color: vars.color.terminal.foregroundMuted,
+  fontSize: '10px',
+  lineHeight: '17px',
+  textTransform: 'uppercase',
+
+  '@media': {
+    'screen and (max-width: 720px)': {
+      display: 'none',
+    },
+  },
+});
+
+export const panel = style({
+  minWidth: 0,
+  minHeight: 0,
+  padding: 'clamp(24px, 5vw, 64px) clamp(20px, 4vw, 48px)',
+  background: vars.color.terminal.surface,
+  borderLeft: `1px solid ${vars.color.terminal.border}`,
+
+  '@media': {
+    'screen and (max-width: 720px)': {
+      borderLeft: 0,
+    },
+  },
+});
+
+export const footer = style({
   display: 'flex',
-  justifyContent: 'center',
   alignItems: 'center',
-
-  padding: '16px',
-  fontSize: '36px',
-  borderRadius: vars.radius.small,
-  marginBottom: '12px',
-
-  background: vars.color.solidSecondary.background,
-  color: vars.color.solidSecondary.attention,
-});
-
-export const infoTitle = styleVariants({
-  main: [classes.typography.head1, {
-    lineHeight: 'normal',
-    color: vars.color.solidPrimary.fillPrimary,
-  }],
-  other: [classes.typography.head1, {
-    lineHeight: 'normal',
-    color: vars.color.solidPrimary.fillSecondary,
-  }],
+  padding: '0 10px',
+  color: vars.color.terminal.foregroundMuted,
+  background: vars.color.terminal.surface,
+  borderTop: `1px solid ${vars.color.terminal.border}`,
+  fontSize: '9px',
+  textTransform: 'uppercase',
 });
