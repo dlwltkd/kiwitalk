@@ -10,5 +10,13 @@ export const container = style({
   justifyContent: 'flex-start',
   alignItems: 'stretch',
 
-  backgroundColor: vars.color.glassPrimary.background,
+  backgroundColor: vars.color.terminal.background,
+});
+
+export const viewport = style({
+  position: 'relative',
+  width: '100%',
+  minHeight: 0,
+  flex: '1 1 auto',
+  overflow: 'hidden',
 });
