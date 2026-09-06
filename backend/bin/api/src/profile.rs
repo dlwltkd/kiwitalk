@@ -43,9 +43,14 @@ pub(super) async fn me_profile(
     cred: CredentialState<'_>,
     client: ClientState<'_>,
 ) -> TauriResult<MeProfile> {
-    let access_token = cred.read().try_access_token()?.to_owned();
+    let credential = cred.read().try_snapshot()?;
 
-    let api = create_api_client(&client, &access_token);
+    let api = create_api_client(
+        &client,
+        credential.access_token.as_str(),
+        &credential.device_uuid,
+        credential.profile,
+    );
 
     let more_settings = MoreSettings::request(api.clone())
         .await
@@ -81,10 +86,15 @@ pub(super) async fn friend_profile(
     cred: CredentialState<'_>,
     client: ClientState<'_>,
 ) -> TauriResult<Profile> {
-    let access_token = cred.read().try_access_token()?.to_owned();
+    let credential = cred.read().try_snapshot()?;
 
     let res = FriendInfo::request(
-        create_api_client(&client, &access_token),
+        create_api_client(
+            &client,
+            credential.access_token.as_str(),
+            &credential.device_uuid,
+            credential.profile,
+        ),
         id.parse().context("invalid id")?,
     )
     .await
