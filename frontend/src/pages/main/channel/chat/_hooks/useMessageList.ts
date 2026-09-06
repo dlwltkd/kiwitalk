@@ -1,105 +1,175 @@
-import { Accessor, createEffect, createResource, createSignal, on } from 'solid-js';
+import {
+  Accessor,
+  createEffect,
+  createMemo,
+  createSignal,
+  on,
+  onCleanup,
+} from 'solid-js';
 
-import { Chatlog, loadChat } from '@/api/client';
-import { useChannelEvent } from '@/pages/main/_hooks';
+import {
+  Chatlog,
+  HistorySyncResult,
+  loadChat,
+  syncChannelHistory,
+} from '@/api/client';
+import { useChannelEvent, useReady } from '@/pages/main/_hooks';
 
-export const useMessageList = (channelId: Accessor<string | null>): [
-  messageGroups: Accessor<Chatlog[][]>,
-  load: (messages?: Chatlog[]) => void,
-  isEnd: Accessor<boolean>,
-] => {
-  let lastLogId: string | undefined = undefined;
+const groupMessages = (messages: Chatlog[]) => messages.reduce<Chatlog[][]>((groups, message) => {
+  const group = groups.at(-1);
+  if (group?.at(-1)?.senderId === message.senderId) group.push(message);
+  else groups.push([message]);
+
+  return groups;
+}, []);
+
+const syncWarning = (result: HistorySyncResult) => {
+  if (result.complete) return null;
+
+  if (result.stopReason === 'pageLimit' || result.stopReason === 'timeLimit') {
+    return 'history sync paused at its safety limit; reopen this chat to continue';
+  }
+  if (result.stopReason === 'unsupportedChannel') {
+    return 'history sync is not available for this room type yet';
+  }
+
+  return 'remote history synchronization stalled; showing cached messages';
+};
+
+export const useMessageList = (channelId: Accessor<string | null>) => {
+  const isReady = useReady();
   const event = useChannelEvent();
-
-  const [messageGroups, setMessageGroups] = createSignal<Chatlog[][]>([]);
-  const [loadMore, setLoadMore] = createSignal(true);
+  const [messages, setMessages] = createSignal<Chatlog[]>([]);
   const [isEnd, setIsEnd] = createSignal(false);
+  const [loading, setLoading] = createSignal(false);
+  const [error, setError] = createSignal<string | null>(null);
+  const [loadVersion, setLoadVersion] = createSignal(0);
+  let activeChannelId: string | null = null;
+  let generation = 0;
+  let initialHistorySyncPending = false;
+  let reloadLatestPending = false;
 
-  const appendMessages = (...messages: Chatlog[]) => {
-    const result = [...messageGroups()];
-    const newGroups = messages.reduce<Chatlog[][]>((acc, cur) => {
-      const lastGroup = acc.at(-1);
-      if (lastGroup?.at(-1)?.senderId === cur.senderId) {
-        lastGroup.push(cur);
-      } else {
-        acc.push([cur]);
-      }
+  const messageGroups = createMemo(() => groupMessages(messages()));
 
-      return acc;
-    }, []);
+  const mergeMessages = (current: Chatlog[], incoming: Chatlog[], position: 'start' | 'end') => {
+    const known = new Set(current.map((message) => message.logId));
+    const unique = incoming.filter((message) => !known.has(message.logId));
 
-    const isCombine = result.at(-1)?.at(-1)?.senderId === newGroups.at(0)?.at(0)?.senderId;
-    if (isCombine) {
-      result[result.length - 1] = [...result.at(-1) ?? [], ...newGroups.shift() ?? []];
-    }
-    result.push(...newGroups);
-    lastLogId = newGroups.at(-1)?.at(-1)?.logId;
-
-    return result;
+    return position === 'start' ? [...unique, ...current] : [...current, ...unique];
   };
 
-  const prependMessages = (...messages: Chatlog[]) => {
-    const result = [...messageGroups()];
-    const newGroups = messages.reduce<Chatlog[][]>((acc, cur) => {
-      const firstGroup = acc.at(0);
-      if (firstGroup?.at(0)?.senderId === cur.senderId) {
-        firstGroup.unshift(cur);
-      } else {
-        acc.unshift([cur]);
-      }
+  const mergeLatestMessages = (current: Chatlog[], incoming: Chatlog[]) => {
+    const byLogId = new Map(current.map((message) => [message.logId, message]));
+    for (const message of incoming) byLogId.set(message.logId, message);
 
-      return acc;
-    }, []);
+    return [...byLogId.values()].sort((left, right) => {
+      const leftId = BigInt(left.logId);
+      const rightId = BigInt(right.logId);
 
-    const isCombine = result.at(0)?.at(0)?.senderId === newGroups.at(-1)?.at(-1)?.senderId;
-    if (isCombine) {
-      result[0] = [...newGroups.pop() ?? [], ...result.at(-0) ?? []];
-    }
-    result.unshift(...newGroups);
-
-    return result;
+      return leftId === rightId ? 0 : leftId > rightId ? -1 : 1;
+    });
   };
 
-  createResource(() => [channelId(), loadMore()] as const, async ([id, isLoad]) => {
-    if (typeof id !== 'string' || !isLoad) return;
+  const loadMore = () => {
+    if (!isReady() || !activeChannelId || loading() || isEnd()) return;
+    setLoadVersion((version) => version + 1);
+  };
 
-    const newLoaded = await loadChat(id, 300, lastLogId, true) ?? [];
-    if (newLoaded.length === 0) {
-      setIsEnd(true);
-    } else {
-      const newGroups = appendMessages(...newLoaded);
+  createEffect(() => {
+    const id = channelId();
+    if (id === activeChannelId) return;
 
-      lastLogId = newGroups.at(-1)?.at(-1)?.logId;
+    activeChannelId = id;
+    generation += 1;
+    initialHistorySyncPending = Boolean(id);
+    reloadLatestPending = false;
+    setMessages([]);
+    setIsEnd(false);
+    setLoading(false);
+    setError(null);
 
-      setMessageGroups(newGroups);
-    }
-
-    setLoadMore(false);
+    if (id && isReady()) queueMicrotask(loadMore);
   });
 
-  createEffect(on(channelId, () => {
-    lastLogId = undefined;
+  createEffect(on(isReady, (ready) => {
+    generation += 1;
+    setLoading(false);
+    if (!ready || !activeChannelId) return;
 
-    setMessageGroups([]);
-    setLoadMore(true);
-  }));
+    initialHistorySyncPending = true;
+    reloadLatestPending = true;
+    setIsEnd(false);
+    queueMicrotask(loadMore);
+  }, { defer: true }));
 
-  createEffect(on(event, async (event) => {
-    if (event?.type === 'Chat') {
-      const id = channelId();
+  createEffect(on(loadVersion, async () => {
+    const id = activeChannelId;
+    if (!id || loading() || isEnd()) return;
 
-      if (event.channelId === id) {
-        const newLoaded = await loadChat(id, 1);
+    const requestGeneration = ++generation;
+    const shouldReloadLatest = reloadLatestPending;
+    const oldestLogId = shouldReloadLatest ? undefined : messages().at(-1)?.logId;
+    const shouldSyncHistory = initialHistorySyncPending;
+    setLoading(true);
+    setError(null);
 
-        setMessageGroups(prependMessages(...newLoaded));
+    try {
+      let syncFailed = false;
+      let syncNotice: string | null = null;
+      if (shouldSyncHistory) {
+        try {
+          syncNotice = syncWarning(await syncChannelHistory(id));
+        } catch {
+          syncFailed = true;
+        }
+
+        if (requestGeneration !== generation || id !== activeChannelId) return;
+        initialHistorySyncPending = false;
       }
+
+      const loaded = await loadChat(id, 200, oldestLogId, true);
+      if (requestGeneration !== generation || id !== activeChannelId) return;
+
+      if (shouldReloadLatest) {
+        setMessages((current) => mergeLatestMessages(current, loaded));
+        reloadLatestPending = false;
+      } else if (loaded.length === 0) {
+        setIsEnd(true);
+      } else {
+        setMessages((current) => mergeMessages(current, loaded, 'end'));
+      }
+
+      if (syncFailed) setError('remote history could not be synchronized; showing local transcript');
+      else if (syncNotice) setError(syncNotice);
+    } catch {
+      if (requestGeneration === generation) setError('local transcript could not be loaded');
+    } finally {
+      if (requestGeneration === generation) setLoading(false);
+    }
+  }, { defer: true }));
+
+  createEffect(on(event, (incoming) => {
+    if (!incoming || incoming.channelId !== activeChannelId) return;
+
+    if (incoming.type === 'Chat') {
+      setMessages((current) => mergeMessages(current, [incoming.content], 'start'));
+    } else if (incoming.type === 'ChatDeleted') {
+      setMessages((current) => current.filter((message) => message.logId !== incoming.content.logId));
     }
   }));
 
-  const onLoadMore = (newMessages: Chatlog[] | undefined = undefined) => {
-    if (newMessages) setMessageGroups(prependMessages(...newMessages));
-    else setLoadMore(true);
-  };
+  onCleanup(() => {
+    generation += 1;
+    activeChannelId = null;
+    initialHistorySyncPending = false;
+    reloadLatestPending = false;
+  });
 
-  return [messageGroups, onLoadMore, isEnd];
+  return {
+    messageGroups,
+    loadMore,
+    isEnd,
+    loading,
+    error,
+  };
 };
