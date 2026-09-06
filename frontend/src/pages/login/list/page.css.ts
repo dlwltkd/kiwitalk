@@ -1,36 +1,42 @@
-import { classes, vars } from '@/features/theme';
-import { style, styleVariants } from '@vanilla-extract/css';
+import { style } from '@vanilla-extract/css';
+
+import { vars } from '@/features/theme';
 
 export const container = style({
+  width: '100%',
   height: '100%',
-
   display: 'flex',
   flexDirection: 'column',
-  justifyContent: 'flex-end',
+  justifyContent: 'center',
   alignItems: 'stretch',
-  gap: '16px',
+  gap: '12px',
 });
 
-const baseTitle = style([classes.typography.base, {
-  fontSize: '40px',
-  textTransform: 'uppercase',
-  letterSpacing: '0.04em',
+export const heading = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '5px',
+  marginBottom: '6px',
+});
 
-  color: vars.color.glassSecondary.fillPrimary,
-}]);
-export const title = styleVariants({
-  normal: [baseTitle, {
-    fontWeight: 300,
-  }],
-  bold: [baseTitle, {
-    fontWeight: 500,
-  }],
+export const command = style({
+  color: vars.color.terminal.foregroundBright,
+  fontSize: '15px',
+  fontWeight: 700,
+});
+
+export const caption = style({
+  color: vars.color.terminal.foregroundMuted,
+  fontSize: '9px',
+  lineHeight: '14px',
+  textTransform: 'uppercase',
 });
 
 export const tool = style({
   display: 'flex',
-  flexDirection: 'row',
+  flexWrap: 'wrap',
   justifyContent: 'flex-end',
   alignItems: 'center',
-  gap: '0',
+  gap: '6px',
+  marginTop: '4px',
 });
