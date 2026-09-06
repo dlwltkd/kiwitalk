@@ -1,124 +1,137 @@
-import { classes, vars } from '@/features/theme';
 import { style, styleVariants } from '@vanilla-extract/css';
 
-const sidebarBase = style({
-  width: '60px',
-  padding: '8px',
+import { vars } from '@/features/theme';
 
+export const sidebar = style({
+  gridRow: '1 / -1',
+  width: '112px',
+  minHeight: 0,
   display: 'flex',
   flexDirection: 'column',
   justifyContent: 'space-between',
-  gap: '4px',
-});
+  padding: '10px 8px 8px',
+  color: vars.color.terminal.foregroundMuted,
+  background: vars.color.terminal.surface,
+  borderRight: `1px solid ${vars.color.terminal.border}`,
 
-export const sidebar = styleVariants({
-  default: [
-    sidebarBase,
-    {
-      background: vars.color.secondary.background,
-      borderRadius: vars.radius.regular,
-      boxShadow: vars.shadow.regular,
-      height: '100%',
+  '@media': {
+    'screen and (max-width: 720px)': {
+      width: '46px',
+      paddingInline: '5px',
     },
-  ],
-  collapsed: [sidebarBase],
+  },
 });
 
-export const sidebarItems = style({
+export const brand = style({
+  height: '32px',
+  display: 'flex',
+  alignItems: 'baseline',
+  paddingInline: '7px',
+  color: vars.color.terminal.foregroundBright,
+  fontSize: '14px',
+  fontWeight: 800,
+  letterSpacing: '-0.04em',
+  textTransform: 'lowercase',
+});
+
+export const brandMark = style({});
+
+export const brandCursor = style({
+  color: vars.color.terminal.accentBright,
+});
+
+export const navigation = style({
   display: 'flex',
   flexDirection: 'column',
-  gap: '4px',
+  gap: '3px',
 });
 
-export const sidebarItem = styleVariants(
-  {
-    active: [vars.color.secondary.elevated, vars.color.secondary.fillPrimary],
-    inactive: ['transparent', vars.color.secondary.fillSecondary],
-  },
-  ([background, color]) => ({
-    cursor: 'pointer',
-    position: 'relative',
-    display: 'flex',
-    color,
-    background,
-    borderRadius: vars.radius.small,
-    padding: '10px',
-    fontSize: '24px',
-    transition: `color ${vars.easing.fill}, background-color ${vars.easing.background}`,
-  }),
-);
-
-export const sidebarButtonBadge = styleVariants(
-  { active: 1, inactive: 0 },
-  (opacity) => [
-    classes.typography.number1,
-    {
-      position: 'absolute',
-      top: '-2px',
-      right: '-2px',
-      padding: '0 4px',
-      minWidth: '16px',
-      minHeight: '16px',
-      borderRadius: vars.radius.extraSmall,
-      background: vars.color.secondary.attention,
-      color: vars.color.secondary.fillPrimary,
-      textAlign: 'center',
-      opacity,
-      transition: `opacity ${vars.easing.background}`,
-    },
-  ],
-);
-
-const sidebarToggleBase = style({
-  '::after': {
-    content: '',
-    display: 'inline-block',
-    position: 'absolute',
-    left: '50%',
-    bottom: '0',
-    width: '10px',
-    height: '2px',
-    borderRadius: vars.radius.full,
-    background: vars.color.secondary.attention,
-    transform: 'translate(-50%)',
-    opacity: '0',
-    transition: `opacity ${vars.easing.fill}`,
-  },
-});
-
-export const sidebarToggle = styleVariants({
-  active: [
-    sidebarToggleBase,
-    sidebarItem.active,
-    { '::after': { opacity: 1 } },
-  ],
-  inactive: [
-    sidebarToggleBase,
-    sidebarItem.inactive,
-  ],
-});
-
-export const sidebarToggleInput = style({
-  appearance: 'none',
-  position: 'absolute',
-  inset: '0',
-});
-
-export const sidebarToggleIconContainer = style({
+const itemBase = style({
   position: 'relative',
-  display: 'inline-flex',
-  justifyContent: 'center',
+  width: '100%',
+  minHeight: '32px',
+  display: 'grid',
+  gridTemplateColumns: '22px minmax(0, 1fr) auto',
   alignItems: 'center',
-  width: '1em',
-  height: '1em',
+  gap: '4px',
+  padding: '5px 7px',
+  borderLeft: '2px solid transparent',
+  color: vars.color.terminal.foregroundMuted,
+  fontSize: '11px',
+  transition: `color ${vars.easing.fill}, background ${vars.easing.background}`,
+
+  '@media': {
+    'screen and (max-width: 720px)': {
+      gridTemplateColumns: '1fr',
+      justifyItems: 'center',
+      paddingInline: '3px',
+    },
+  },
 });
 
-export const sidebarToggleIcon = styleVariants(
-  { active: 1, inactive: 0 },
-  (opacity) => ({
-    position: 'absolute',
-    inset: '0',
-    opacity,
-    transition: `opacity ${vars.easing.fill}`,
-  }),
-);
+export const item = styleVariants({
+  active: [itemBase, {
+    color: vars.color.terminal.foregroundBright,
+    background: vars.color.terminal.selection,
+    borderLeftColor: vars.color.terminal.accentBright,
+  }],
+  inactive: [itemBase, {
+    selectors: {
+      '&:hover': {
+        color: vars.color.terminal.foreground,
+        background: vars.color.terminal.surfaceHover,
+      },
+    },
+  }],
+});
+
+export const utility = style([itemBase, {
+  selectors: {
+    '&:hover': {
+      color: vars.color.terminal.foreground,
+      background: vars.color.terminal.surfaceHover,
+    },
+  },
+}]);
+
+export const shortcut = style({
+  color: vars.color.terminal.accent,
+  fontSize: '10px',
+  fontVariantNumeric: 'tabular-nums',
+});
+
+export const label = style({
+  minWidth: 0,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+
+  '@media': {
+    'screen and (max-width: 720px)': {
+      display: 'none',
+    },
+  },
+});
+
+export const badge = style({
+  minWidth: '17px',
+  padding: '1px 3px',
+  color: vars.color.terminal.background,
+  background: vars.color.terminal.accentBright,
+  fontSize: '9px',
+  lineHeight: '13px',
+  textAlign: 'center',
+  fontVariantNumeric: 'tabular-nums',
+
+  '@media': {
+    'screen and (max-width: 720px)': {
+      position: 'absolute',
+      top: '1px',
+      right: '1px',
+      minWidth: '12px',
+      padding: 0,
+      fontSize: '8px',
+      lineHeight: '12px',
+    },
+  },
+});
