@@ -1,39 +1,52 @@
-import { classes, vars } from '@/features/theme';
 import { style, styleVariants } from '@vanilla-extract/css';
 
-export const infoContainer = style({
-  height: '100%',
+import { vars } from '@/features/theme';
 
-  flex: 1,
-
+export const container = style({
+  maxWidth: '420px',
   display: 'flex',
   flexDirection: 'column',
-  justifyContent: 'flex-start',
-  alignItems: 'flex-start',
-  gap: '18px',
+  gap: '12px',
+  marginTop: 'auto',
 });
 
-export const iconWrapper = style({
+export const label = style({
+  color: vars.color.terminal.foregroundMuted,
+  fontSize: '9px',
+  textTransform: 'uppercase',
+});
+
+export const steps = style({
   display: 'flex',
-  justifyContent: 'center',
-  alignItems: 'center',
-
-  padding: '16px',
-  fontSize: '36px',
-  borderRadius: vars.radius.small,
-  marginBottom: '12px',
-
-  background: vars.color.solidSecondary.background,
-  color: vars.color.solidSecondary.attention,
+  flexDirection: 'column',
+  gap: '3px',
 });
 
-export const infoTitle = styleVariants({
-  main: [classes.typography.head1, {
-    lineHeight: 'normal',
-    color: vars.color.solidPrimary.fillPrimary,
+const stepBase = style({
+  display: 'grid',
+  gridTemplateColumns: '28px minmax(0, 1fr)',
+  alignItems: 'center',
+  gap: '8px',
+  minHeight: '28px',
+  padding: '4px 7px',
+  borderLeft: '2px solid transparent',
+  fontSize: '10px',
+});
+
+export const step = styleVariants({
+  active: [stepBase, {
+    color: vars.color.terminal.foregroundBright,
+    background: vars.color.terminal.selection,
+    borderLeftColor: vars.color.terminal.accentBright,
   }],
-  other: [classes.typography.head1, {
-    lineHeight: 'normal',
-    color: vars.color.solidPrimary.fillSecondary,
+  complete: [stepBase, {
+    color: vars.color.terminal.accent,
   }],
+  pending: [stepBase, {
+    color: vars.color.terminal.borderStrong,
+  }],
+});
+
+export const back = style({
+  alignSelf: 'flex-start',
 });
