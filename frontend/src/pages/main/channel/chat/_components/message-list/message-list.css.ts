@@ -1,48 +1,62 @@
-import { classes, vars } from '@/features/theme';
 import { style, styleVariants } from '@vanilla-extract/css';
+
+import { vars } from '@/features/theme';
+
+export const container = style({
+  position: 'relative',
+  minWidth: 0,
+  minHeight: 0,
+  overflow: 'hidden',
+  background: vars.color.terminal.background,
+});
 
 export const virtualList = styleVariants({
   outer: {
     position: 'relative',
-
     width: '100%',
     height: '100%',
-    overflow: 'auto',
+    overflowY: 'auto',
     overflowX: 'hidden',
-
-    selectors: {
-      '&::-webkit-scrollbar': {
-        display: 'none',
-      },
-      '&::-webkit-scrollbar-track': {
-        display: 'none',
-      },
-      '&::-webkit-scrollbar-thumb': {
-        display: 'none',
-      },
-    },
   },
   inner: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-
+    inset: '0 0 auto',
     width: '100%',
   },
 });
 
-export const loader = style([classes.typography.title, {
-  width: 'fit-content',
-  height: 'fit-content',
+const noticeBase = style({
+  position: 'absolute',
+  top: '6px',
+  left: '50%',
+  zIndex: vars.layer.head,
+  padding: '3px 7px',
+  background: vars.color.terminal.surfaceRaised,
+  border: `1px solid ${vars.color.terminal.border}`,
+  fontSize: '9px',
+  transform: 'translateX(-50%)',
+  whiteSpace: 'nowrap',
+});
 
+export const notice = styleVariants({
+  loading: [noticeBase, { color: vars.color.terminal.foregroundMuted }],
+  error: [noticeBase, { color: vars.color.red400 }],
+  end: [noticeBase, { color: vars.color.terminal.foregroundMuted }],
+});
+
+export const empty = style({
+  position: 'absolute',
+  inset: 0,
   display: 'flex',
-  justifyContent: 'center',
+  flexDirection: 'column',
   alignItems: 'center',
+  justifyContent: 'center',
+  gap: '7px',
+  color: vars.color.terminal.foregroundMuted,
+  fontSize: '10px',
+  pointerEvents: 'none',
+});
 
-  padding: '16px 24px',
-  margin: 'auto',
-
-  backgroundColor: vars.color.glassSecondary.background,
-  color: vars.color.glassSecondary.fillSecondary,
-  borderRadius: vars.radius.regular,
-}]);
+export const emptyCommand = style({
+  color: vars.color.terminal.accent,
+});
