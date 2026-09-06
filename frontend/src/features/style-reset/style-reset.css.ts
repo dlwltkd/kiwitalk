@@ -40,6 +40,32 @@ globalStyle('button', {
   userSelect: 'none',
 });
 
+globalStyle(':focus-visible', {
+  outline: '1px solid #2dd5b7',
+  outlineOffset: '-1px',
+});
+
+globalStyle('::selection', {
+  color: '#f7e8b2',
+  background: '#32473b',
+});
+
+globalStyle('*', {
+  scrollbarColor: '#53685b #0c1512',
+  scrollbarWidth: 'thin',
+});
+
+globalStyle('*, *::before, *::after', {
+  '@media': {
+    '(prefers-reduced-motion: reduce)': {
+      animationDuration: '0.01ms !important',
+      animationIterationCount: '1 !important',
+      scrollBehavior: 'auto',
+      transitionDuration: '0.01ms !important',
+    },
+  },
+});
+
 globalStyle('input::-ms-clear, input::-webkit-search-cancel-button', {
   display: 'none',
 });
@@ -47,4 +73,3 @@ globalStyle('input::-ms-clear, input::-webkit-search-cancel-button', {
 globalStyle('input::-webkit-inner-spin-button, input::-webkit-outer-spin-button', {
   WebkitAppearance: 'none',
 });
-
