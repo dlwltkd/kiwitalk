@@ -64,24 +64,24 @@ impl SessionHandler {
                 let row = ChatRow::from_chatlog(msg.chatlog.clone(), None);
 
                 move |conn| {
-                    let count = diesel::select(exists(
+                    let channel_exists = diesel::select(exists(
                         channel_list::table.filter(channel_list::id.eq(row.channel_id)),
                     ))
-                    .execute(conn)?;
+                    .get_result::<bool>(conn)?;
 
                     diesel::replace_into(chat::table)
                         .values(row)
                         .execute(conn)?;
 
-                    Ok(count > 0)
+                    Ok(channel_exists)
                 }
             })
             .await?;
 
         if !exists && msg.link_id.is_none() {
-            ChannelUpdater::new(msg.chat_id)
+            let _ = ChannelUpdater::new(msg.chat_id)
                 .initialize(&self.conn.session, &self.conn.pool)
-                .await?;
+                .await;
         }
 
         Ok(Some(ClientEvent::Channel {
@@ -161,7 +161,7 @@ impl SessionHandler {
                 let chatlog = value.chatlog.clone();
 
                 move |conn| {
-                    diesel::insert_into(chat::table)
+                    diesel::replace_into(chat::table)
                         .values(ChatRow::from_chatlog(chatlog, None))
                         .execute(conn)?;
 
@@ -177,9 +177,9 @@ impl SessionHandler {
     }
 
     async fn on_channel_join(&self, sync_join: SyncJoin) -> HandlerResult {
-        ChannelUpdater::new(sync_join.chat_id)
+        let _ = ChannelUpdater::new(sync_join.chat_id)
             .initialize(&self.conn.session, &self.conn.pool)
-            .await?;
+            .await;
 
         Ok(Some(ClientEvent::Channel {
             id: sync_join.chat_id,
@@ -210,7 +210,7 @@ impl SessionHandler {
                 let chatlog = new_mem.chatlog.clone();
 
                 move |conn| {
-                    diesel::insert_into(chat::table)
+                    diesel::replace_into(chat::table)
                         .values(ChatRow::from_chatlog(chatlog, None))
                         .execute(conn)?;
 
@@ -232,7 +232,7 @@ impl SessionHandler {
                 let chatlog = del_mem.chatlog.clone();
 
                 move |conn| {
-                    diesel::insert_into(chat::table)
+                    diesel::replace_into(chat::table)
                         .values(ChatRow::from_chatlog(chatlog, None))
                         .execute(conn)?;
 
