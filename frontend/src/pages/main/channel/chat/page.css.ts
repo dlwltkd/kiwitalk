@@ -1,14 +1,30 @@
-import { vars } from '@/features/theme';
 import { style } from '@vanilla-extract/css';
 
+import { vars } from '@/features/theme';
+
 export const container = style({
-  position: 'relative',
-
   width: '100%',
-  height: 'calc(100% + 32px)',
-  marginTop: '-32px',
+  height: '100%',
+  minWidth: 0,
+  minHeight: 0,
+  display: 'grid',
+  gridTemplateRows: 'auto auto minmax(0, 1fr) auto auto',
+  color: vars.color.terminal.foreground,
+  background: vars.color.terminal.background,
+});
 
-  padding: '0 32px',
+export const channelError = style({
+  padding: '5px 10px',
+  color: vars.color.red400,
+  background: vars.color.terminal.surface,
+  borderBottom: `1px solid ${vars.color.terminal.border}`,
+  fontSize: '9px',
+});
 
-  backgroundColor: vars.color.glassSecondary.background,
+export const commandError = style({
+  padding: '4px 10px',
+  color: vars.color.red400,
+  background: vars.color.terminal.surface,
+  borderTop: `1px solid ${vars.color.terminal.border}`,
+  fontSize: '9px',
 });
