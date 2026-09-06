@@ -14,6 +14,7 @@ import { DeviceRegisterPage } from './login/device-register/page';
 import { LoginEndPage } from './login/end';
 import { ChatPage } from './main/channel/chat';
 import { FriendListPage } from './main/friend';
+import { TerminalPlaceholder } from './main/_components/placeholder';
 
 export const App = () => {
   const [, { changeLanguage }] = useTransContext();
@@ -70,7 +71,7 @@ export const App = () => {
             <Route path={'/'} component={ChatPage} />
           </Route>
         </Route>
-        <Route path={'/*'} element={<div>TODO</div>} />
+        <Route path={'/*'} component={TerminalPlaceholder} />
       </Route>
       <Route path={'/login'} component={LoginBasePage}>
         <Route path={'/'} component={LoginBasePage} />
@@ -84,7 +85,11 @@ export const App = () => {
           component={LoginContentPage}
           data={() => refetch}
         />
-        <Route path={'/device-register'} component={DeviceRegisterPage} />
+        <Route
+          path={'/device-register'}
+          component={DeviceRegisterPage}
+          data={() => refetch}
+        />
         <Route path={'/end'} component={LoginEndPage} />
       </Route>
     </>
