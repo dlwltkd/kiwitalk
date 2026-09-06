@@ -1,3 +1,4 @@
+import { createEffect } from 'solid-js';
 import { Outlet, useNavigate, useParams } from '@solidjs/router';
 
 import { ChannelList } from './_components/channel-list';
@@ -12,19 +13,34 @@ export const ChannelListPage = () => {
 
   const activeId = () => param.channelId;
   const setActiveId = (id: string) => {
-    navigate(`${id}`);
+    navigate(`/main/chat/${id}`);
   };
+  const clearActiveId = () => navigate('/main/chat');
+
+  createEffect(() => {
+    const id = activeId();
+    if (!id || !channelList.loaded()) return;
+
+    if (!channelList.channels().some((channel) => channel.id === id)) clearActiveId();
+  });
 
   return (
     <div class={styles.container}>
-      <div class={styles.list}>
+      <div class={styles.list[activeId() ? 'channelOpen' : 'channelList']}>
         <ChannelList
-          channels={channelList()}
+          channels={channelList.channels()}
           activeId={activeId()}
           setActiveId={setActiveId}
+          clearActiveId={clearActiveId}
+          loading={channelList.loading()}
+          loaded={channelList.loaded()}
+          error={channelList.error()}
+          onRetry={channelList.retry}
         />
       </div>
-      <Outlet />
+      <div class={styles.detail[activeId() ? 'channelOpen' : 'channelList']}>
+        <Outlet />
+      </div>
     </div>
   );
 };
