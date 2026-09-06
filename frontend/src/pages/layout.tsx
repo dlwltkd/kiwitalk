@@ -1,16 +1,17 @@
 import { ParentProps, createResource, onCleanup } from 'solid-js';
 import { Router, Routes, hashIntegration } from '@solidjs/router';
-import { Transition } from 'solid-transition-group';
-import { appWindow } from '@tauri-apps/api/window';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 
 import { I18nProvider } from '@/features/i18n';
 import { ConfigProvider } from '@/features/config';
-import { classes, themeRoot } from '@/features/theme';
+import { themeRoot } from '@/features/theme';
 
 import { WindowControls } from './_components/window-controls';
 
 import * as styles from './layout.css';
-import { saveWindowState, StateFlags } from 'tauri-plugin-window-state-api';
+import { saveWindowState, StateFlags } from '@tauri-apps/plugin-window-state';
+
+const appWindow = getCurrentWindow();
 
 export const Provider = (props: ParentProps) => (
   <I18nProvider>
@@ -53,11 +54,11 @@ export const Layout = (props: ParentProps) => {
             onMaximize={onMaximize}
             onClose={onClose}
           />
-          <Transition appear mode={'outin'} {...classes.transition.scale}>
+          <div class={styles.viewport}>
             <Routes>
               {props.children}
             </Routes>
-          </Transition>
+          </div>
         </div>
       </Router>
     </Provider>
