@@ -2,7 +2,7 @@ use crate::{config::Config, credential::Credential, RequestResult};
 use reqwest::{header, Client, Method, Request, RequestBuilder};
 use url::Url;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ApiClient<'a> {
     credential: Credential<'a>,
     inner: TalkHttpClient<'a>,
