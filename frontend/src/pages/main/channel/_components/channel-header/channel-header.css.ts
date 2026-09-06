@@ -1,64 +1,73 @@
-import { classes, vars } from '@/features/theme';
-import { style, styleVariants } from '@vanilla-extract/css';
+import { style } from '@vanilla-extract/css';
+
+import { vars } from '@/features/theme';
 
 export const container = style({
-  position: 'absolute',
-  top: 0,
-  left: 0,
-  width: '100%',
-
+  minWidth: 0,
+  height: '44px',
   display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'flex-end',
-
-  zIndex: vars.layer.head,
-
-  padding: '32px',
-  paddingBottom: '20px',
-
-  backdropFilter: `${vars.blur.large}`,
-  WebkitBackdropFilter: `${vars.blur.large}`,
-  backgroundColor: vars.color.glassPrimary.background,
-  borderBottom: `1px solid ${vars.color.glassPrimary.fillTertiary}`,
-});
-
-export const contentContainer = style({
-  display: 'flex',
-  flexDirection: 'row',
-  justifyContent: 'flex-start',
   alignItems: 'center',
-  gap: '16px',
+  gap: '8px',
+  padding: '0 12px',
+  color: vars.color.terminal.foreground,
+  background: vars.color.terminal.surface,
+  borderBottom: `1px solid ${vars.color.terminal.border}`,
 });
 
-export const textContainer = style({
+export const back = style({
+  display: 'none',
+  width: '24px',
+  height: '24px',
+  placeItems: 'center',
+  color: vars.color.terminal.accentBright,
+  border: `1px solid ${vars.color.terminal.border}`,
+
+  '@media': {
+    'screen and (max-width: 720px)': {
+      display: 'grid',
+    },
+  },
+});
+
+export const identity = style({
+  minWidth: 0,
   display: 'flex',
-  flexDirection: 'column',
-  justifyContent: 'flex-start',
-  alignItems: 'flex-start',
-  gap: '4px',
+  alignItems: 'baseline',
+  gap: '7px',
 });
 
-export const text = styleVariants({
-  title: [classes.typography.head2, {
-    color: vars.color.glassPrimary.fillPrimary,
-  }],
-  subtitle: [classes.typography.atom.size14, {
-    color: vars.color.glassPrimary.fillSecondary,
-
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '8px',
-  }],
+export const prompt = style({
+  color: vars.color.terminal.accentBright,
+  fontSize: '14px',
+  fontWeight: 800,
 });
 
-export const toolContainer = style({
+export const name = style({
+  minWidth: 0,
+  overflow: 'hidden',
+  color: vars.color.terminal.foregroundBright,
+  fontSize: '12px',
+  fontWeight: 700,
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+});
+
+export const members = style({
+  flexShrink: 0,
+  color: vars.color.terminal.foregroundMuted,
+  fontSize: '9px',
+});
+
+export const flags = style({
+  marginLeft: 'auto',
   display: 'flex',
-  justifyContent: 'flex-end',
   alignItems: 'center',
-  gap: '20px',
+  gap: '9px',
+  color: vars.color.terminal.foregroundMuted,
+  fontSize: '9px',
+  textTransform: 'uppercase',
+});
 
-  padding: '12px 0',
-
-  color: vars.color.glassPrimary.fillPrimary,
-  fontSize: '18px',
+export const live = style({
+  color: vars.color.terminal.accentBright,
 });
