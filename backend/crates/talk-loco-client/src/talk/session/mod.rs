@@ -54,7 +54,28 @@ impl<'a> TalkSession<'a> {
         login::Response,
         Option<impl Stream<Item = RequestResult<load_channel_list::Response>> + 'a>,
     )> {
-        let res = request!(self.0, "LOGINLIST", &req, login::Response).await?;
+        self.login_with_response(req, login::ResponseType::Desktop)
+            .await
+    }
+
+    pub async fn login_with_response(
+        self,
+        req: login::Request<'a>,
+        response_type: login::ResponseType,
+    ) -> RequestResult<(
+        login::Response,
+        Option<impl Stream<Item = RequestResult<load_channel_list::Response>> + 'a>,
+    )> {
+        let res = match response_type {
+            login::ResponseType::Desktop => {
+                request!(self.0, "LOGINLIST", &req, login::Response).await?
+            }
+            login::ResponseType::AndroidSubdevice => {
+                request!(self.0, "LOGINLIST", &req, login::AndroidResponse)
+                    .await?
+                    .into()
+            }
+        };
 
         if res.chat_list.eof {
             return Ok((res, None));
