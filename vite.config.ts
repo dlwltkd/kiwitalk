@@ -12,18 +12,18 @@ export default defineConfig({
   },
   envPrefix: [
     'VITE_',
-    'TAURI_PLATFORM',
-    'TAURI_ARCH',
-    'TAURI_FAMILY',
-    'TAURI_PLATFORM_VERSION',
-    'TAURI_PLATFORM_TYPE',
-    'TAURI_DEBUG',
+    'TAURI_ENV_PLATFORM',
+    'TAURI_ENV_ARCH',
+    'TAURI_ENV_FAMILY',
+    'TAURI_ENV_PLATFORM_VERSION',
+    'TAURI_ENV_PLATFORM_TYPE',
+    'TAURI_ENV_DEBUG',
   ],
   root: 'frontend',
   build: {
     target: ['es2019', 'chrome86', 'safari13'],
-    minify: !process.env.TAURI_DEBUG ? 'esbuild' : false,
-    sourcemap: !!process.env.TAURI_DEBUG,
+    minify: !process.env.TAURI_ENV_DEBUG ? 'esbuild' : false,
+    sourcemap: !!process.env.TAURI_ENV_DEBUG,
   },
 
   plugins: [
