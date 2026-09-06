@@ -21,7 +21,6 @@ pub(crate) async fn channel_list(
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-
 pub(crate) struct DisplayUser {
     id: String,
     nickname: String,
