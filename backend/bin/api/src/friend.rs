@@ -36,7 +36,7 @@ pub(super) async fn update_friends(
     client: ClientState<'_>,
     friend_ids: Vec<String>,
 ) -> TauriResult<FriendsUpdate> {
-    let access_token = cred.read().try_access_token()?.to_owned();
+    let credential = cred.read().try_snapshot()?;
 
     let ids = friend_ids
         .into_iter()
@@ -44,9 +44,17 @@ pub(super) async fn update_friends(
         .collect::<Result<Vec<u64>, _>>()
         .context("invalid friend ids")?;
 
-    let res = FriendsDiff::request(create_api_client(&client, &access_token), &ids)
-        .await
-        .context("diff api call failed")?;
+    let res = FriendsDiff::request(
+        create_api_client(
+            &client,
+            credential.access_token.as_str(),
+            &credential.device_uuid,
+            credential.profile,
+        ),
+        &ids,
+    )
+    .await
+    .context("diff api call failed")?;
 
     Ok(FriendsUpdate {
         added: res
