@@ -1,100 +1,65 @@
-import { classes, vars } from '@/features/theme';
-import { style, styleVariants } from '@vanilla-extract/css';
+import { style } from '@vanilla-extract/css';
+
+import { vars } from '@/features/theme';
 
 export const container = style({
   width: '100%',
   height: '100%',
-
-  display: 'flex',
-  flexFlow: 'column',
-  justifyContent: 'flex-start',
-  alignItems: 'stretch',
+  minHeight: 0,
+  display: 'grid',
+  gridTemplateRows: '52px 24px minmax(0, 1fr)',
+  background: vars.color.terminal.surface,
 });
 
 export const header = style({
-  width: '100%',
-
   display: 'flex',
-  justifyContent: 'space-between',
   alignItems: 'center',
+  padding: '0 10px',
+  color: vars.color.terminal.foregroundBright,
+  borderBottom: `1px solid ${vars.color.terminal.border}`,
+  fontSize: '13px',
+  fontWeight: 700,
 
-  paddingTop: '4px',
-  marginBottom: '18px',
 });
 
-export const title = style([classes.typography.head1, {
-  color: vars.color.secondary.fillPrimary,
+export const prompt = style({
+  color: vars.color.terminal.accentBright,
+});
 
-  paddingLeft: '12px',
-  paddingRight: '12px',
-}]);
+export const count = style({
+  marginLeft: 'auto',
+  color: vars.color.terminal.foregroundMuted,
+  fontSize: '9px',
+  fontWeight: 400,
+});
 
-export const iconContainer = style({
-  display: 'flex',
-  flexDirection: 'row',
-  justifyContent: 'flex-end',
+export const columns = style({
+  display: 'grid',
+  gridTemplateColumns: '28px minmax(0, 1fr)',
   alignItems: 'center',
+  gap: '6px',
+  padding: '0 8px',
+  color: vars.color.terminal.foregroundMuted,
+  borderBottom: `1px solid ${vars.color.terminal.border}`,
+  fontSize: '9px',
+  textTransform: 'uppercase',
 });
 
-export const iconButton = style({
-  padding: '12px',
-  marginLeft: '-4px',
-
-  color: vars.color.secondary.fillPrimary,
+export const scrollArea = style({
+  minHeight: 0,
+  overflowY: 'auto',
 });
 
-export const meFrame = style({
-  width: '100%',
-
-  padding: '8px',
-  borderRadius: vars.radius.regular,
-  border: `1px solid ${vars.color.glassPrimary.fillTertiary}`,
+export const section = style({
+  padding: '8px 8px 3px',
+  color: vars.color.terminal.foregroundMuted,
+  fontSize: '8px',
+  textTransform: 'uppercase',
 });
 
-export const sectionContainer = styleVariants({
-  vertical: {
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'flex-start',
-    alignItems: 'stretch',
-  },
-  horizontal: {
-    display: 'flex',
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    alignItems: 'stretch',
-
-    overflowX: 'auto',
-  },
-  horizontalWrapper: {
-    width: 'calc(100% - 16px)',
-    margin: '0 8px',
-
-    overflow: 'visible',
-  },
-});
-
-export const sectionTitleContainer = style({
-  display: 'flex',
-  justifyContent: 'flex-start',
-  alignItems: 'center',
-  gap: '4px',
-
-  padding: '0 12px',
-  marginBottom: '4px',
-
-  selectors: {
-    '&:not(:first-child)': {
-      marginTop: '18px',
-    },
-  },
-});
-
-export const sectionTitle = styleVariants({
-  title: [classes.typography.body, {
-    color: vars.color.glassPrimary.fillSecondary,
-  }],
-  number: [classes.typography.number2, {
-    color: vars.color.glassPrimary.fillSecondary,
-  }],
+export const empty = style({
+  padding: '10px 8px',
+  color: vars.color.terminal.foregroundMuted,
+  fontSize: '9px',
+  lineHeight: '14px',
 });
