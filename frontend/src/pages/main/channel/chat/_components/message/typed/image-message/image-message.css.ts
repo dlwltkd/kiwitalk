@@ -2,12 +2,15 @@ import { vars } from '@/features/theme';
 import { createVar, style } from '@vanilla-extract/css';
 
 export const container = style({
+  width: 'min(100%, 420px)',
+  maxHeight: '360px',
   display: 'grid',
   gridTemplateColumns: 'repeat(6, minmax(min(40px, 100%), 1fr))',
   gridAutoRows: 'auto',
   gap: '3px',
 
   borderRadius: vars.radius.small,
+  border: `1px solid ${vars.color.terminal.border}`,
   overflow: 'hidden',
 
   selectors: {
@@ -31,6 +34,7 @@ export const image = style({
   minHeight: preservedHeight,
 
   objectFit: 'cover',
+  maxHeight: '360px',
   gridColumn: 'span 2',
 
   zIndex: vars.layer.base,
