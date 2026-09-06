@@ -1,63 +1,87 @@
 import { style, styleVariants } from '@vanilla-extract/css';
-import { vars, classes } from '@/features/theme';
+
+import { vars } from '@/features/theme';
 
 export const container = style({
+  minHeight: '30px',
   display: 'flex',
-  minHeight: '32px',
-  padding: '0 32px',
   alignItems: 'center',
-
+  justifyContent: 'space-between',
+  paddingLeft: '10px',
+  color: vars.color.terminal.foregroundMuted,
+  background: vars.color.terminal.surface,
+  borderBottom: `1px solid ${vars.color.terminal.border}`,
+  fontSize: '11px',
+  lineHeight: 1,
+  letterSpacing: '0.04em',
   zIndex: vars.layer.windowFrame,
+  userSelect: 'none',
+});
 
-  selectors: {
-    '&::before': {
-      content: '',
-      flex: '1 1 0',
+export const identity = style({
+  minWidth: 0,
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px',
+});
+
+export const prompt = style({
+  color: vars.color.terminal.accentBright,
+  fontWeight: 700,
+});
+
+export const title = style({
+  color: vars.color.terminal.foregroundBright,
+  fontWeight: 700,
+  textTransform: 'uppercase',
+});
+
+export const protocol = style({
+  color: vars.color.terminal.foregroundMuted,
+  textTransform: 'uppercase',
+
+  '@media': {
+    'screen and (max-width: 520px)': {
+      display: 'none',
     },
   },
 });
 
-export const title = style([
-  classes.typography.fineprint,
-  {
-    color: 'rgba(255, 255, 255, .3)',
-    flex: '1 1 0',
-    fontWeight: 500,
-    textAlign: 'center',
-    textTransform: 'uppercase',
-    letterSpacing: '0.04em',
-    padding: '0 32px',
-  },
-]);
-
 export const buttons = style({
+  alignSelf: 'stretch',
   display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'flex-end',
-  flex: '1 1 0',
-  gap: '24px',
+  alignItems: 'stretch',
 });
 
-export const buttonBase = style({
-  width: '12px',
-  height: '12px',
-  borderRadius: '100%',
-  transition: `all ${vars.easing.background}`,
+const buttonBase = style({
+  width: '34px',
+  display: 'grid',
+  placeItems: 'center',
+  color: vars.color.terminal.foregroundMuted,
+  fontSize: '13px',
+  transition: `color ${vars.easing.fill}, background ${vars.easing.background}`,
+
+  selectors: {
+    '&:hover': {
+      color: vars.color.terminal.foregroundBright,
+      background: vars.color.terminal.surfaceHover,
+    },
+  },
 });
 
 export const buttonMinMax = styleVariants({
-  active: [buttonBase, {
-    'background': vars.color.neutral.grey800,
-    ':hover': { opacity: vars.opacity.hover },
-  }],
-  inactive: [buttonBase, { background: vars.color.secondary.fillSecondary }],
+  active: [buttonBase],
+  inactive: [buttonBase, { opacity: 0.55 }],
 });
 
 export const buttonClose = styleVariants({
   active: [buttonBase, {
-    'background': vars.color.red400,
-    ':hover': { opacity: vars.opacity.hover },
+    selectors: {
+      '&:hover': {
+        color: vars.color.terminal.background,
+        background: vars.color.red400,
+      },
+    },
   }],
-  inactive: [buttonBase, { background: vars.color.secondary.fillSecondary }],
+  inactive: [buttonBase, { opacity: 0.55 }],
 });
-
