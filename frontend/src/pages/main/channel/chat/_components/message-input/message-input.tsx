@@ -1,47 +1,83 @@
-import * as styles from './message-input.css';
+import { createSignal, onCleanup, onMount } from 'solid-js';
 
-import IconSend from '@/pages/main/channel/chat/_assets/icons/send.svg';
+import * as styles from './message-input.css';
 
 export type MessageInputProps = {
   placeholder?: string;
-  onSubmit?: (message: string) => void;
+  disabled?: boolean;
+  onSubmit?: (message: string) => void | Promise<void>;
 };
+
 export const MessageInput = (props: MessageInputProps) => {
-  let textarea: HTMLTextAreaElement | null = null;
+  const [sending, setSending] = createSignal(false);
+  let textarea!: HTMLTextAreaElement;
 
-  const onResize = (target: HTMLTextAreaElement) => {
-    textarea = target;
-
-    target.style.height = '0';
-    target.style.height = (target.scrollHeight) + 'px';
+  const resize = () => {
+    textarea.style.height = '0';
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 104)}px`;
   };
 
-  const onSubmit = (event: Event) => {
+  const submit = async (event: Event) => {
     event.preventDefault();
+    const value = textarea.value.trim();
+    if (!value || sending() || props.disabled) return;
 
-    const value = textarea?.value?.trim();
-    if (value) {
-      props.onSubmit?.(value);
-
-      textarea!.value = '';
-      onResize(textarea!);
+    setSending(true);
+    try {
+      await props.onSubmit?.(value);
+      textarea.value = '';
+      resize();
+    } catch {
+      textarea.focus();
+    } finally {
+      setSending(false);
     }
   };
+
   const onKeyDown = (event: KeyboardEvent) => {
-    if (!event.shiftKey && event.key === 'Enter') onSubmit(event);
+    if (event.isComposing || event.keyCode === 229) return;
+
+    if (event.key === 'Escape') {
+      textarea.blur();
+      return;
+    }
+
+    if (!event.shiftKey && event.key === 'Enter') void submit(event);
   };
 
+  onMount(() => {
+    const focusComposer = (event: KeyboardEvent) => {
+      if (event.isComposing || event.keyCode === 229) return;
+      const target = event.target;
+      const editable = target instanceof HTMLElement && (
+        target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA'
+      );
+
+      if (!editable && event.key.toLocaleLowerCase() === 'i') {
+        event.preventDefault();
+        textarea.focus();
+      }
+    };
+
+    window.addEventListener('keydown', focusComposer);
+    onCleanup(() => window.removeEventListener('keydown', focusComposer));
+  });
+
   return (
-    <form class={styles.container} onSubmit={onSubmit}>
+    <form class={styles.container} onSubmit={submit}>
+      <span class={styles.prompt}>❯</span>
       <textarea
-        ref={onResize}
+        ref={textarea}
+        aria-label={props.placeholder ?? 'Message'}
         class={styles.input}
-        placeholder={props.placeholder}
-        onInput={(event) => onResize(event.target)}
+        disabled={props.disabled || sending()}
+        placeholder={props.placeholder ?? 'write a message'}
+        rows={1}
+        onInput={resize}
         onKeyDown={onKeyDown}
       />
-      <button class={styles.button}>
-        <IconSend />
+      <button class={styles.button} disabled={props.disabled || sending()} type="submit">
+        {sending() ? '[...]' : '[send ↵]'}
       </button>
     </form>
   );
