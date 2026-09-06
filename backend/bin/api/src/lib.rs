@@ -2,14 +2,14 @@ pub mod auth;
 pub mod constants;
 pub mod friend;
 pub mod profile;
+pub mod protocol;
 
-use std::ops::Deref;
+use std::{ops::Deref, time::Duration};
 
-use reqwest::Url;
+use reqwest::{redirect::Policy, Url};
 use serde::Serialize;
 use talk_api_internal::{
     client::{ApiClient, TalkHttpClient},
-    config::Config,
     credential::Credential,
     ApiError, ApiResult, RequestResult,
 };
@@ -19,8 +19,7 @@ use tauri::{
     Manager, Runtime, State,
 };
 
-use crate::constants::{TALK_AGENT, TALK_VERSION};
-use kiwi_talk_system::{get_system_info, SystemInfo};
+use crate::protocol::ProtocolProfile;
 
 #[derive(Debug, Clone)]
 #[repr(transparent)]
@@ -36,11 +35,18 @@ impl Deref for Client {
 
 type ClientState<'a> = State<'a, Client>;
 
-pub async fn init<R: Runtime>() -> TauriPlugin<R> {
-    let client = Client(reqwest::Client::new());
+pub async fn init<R: Runtime>() -> anyhow::Result<TauriPlugin<R>> {
+    let client = Client(
+        reqwest::Client::builder()
+            .timeout(Duration::from_secs(15))
+            .redirect(Policy::none())
+            .https_only(true)
+            .no_proxy()
+            .build()?,
+    );
 
-    Builder::new("api")
-        .setup(|app| {
+    Ok(Builder::new("api")
+        .setup(|app, _api| {
             app.manage(client);
             auth::init(app);
 
@@ -51,40 +57,37 @@ pub async fn init<R: Runtime>() -> TauriPlugin<R> {
             auth::login,
             auth::logout,
             auth::auto_login,
-            auth::register_device,
-            auth::request_passcode,
+            auth::poll_android_registration,
+            auth::cancel_android_registration,
             auth::default_login_form,
             profile::me_profile,
             profile::friend_profile,
             friend::update_friends,
         ])
-        .build()
+        .build())
 }
 
-fn create_api_client<'a>(client: &Client, access_token: &'a str) -> ApiClient<'a> {
+fn create_api_client<'a>(
+    client: &Client,
+    access_token: &'a str,
+    device_uuid: &'a str,
+    profile: ProtocolProfile,
+) -> ApiClient<'a> {
     ApiClient::new(
         Credential {
-            device_uuid: &get_system_info().device.device_uuid,
+            device_uuid,
             access_token,
         },
-        create_http_client(client),
+        create_http_client(client, profile),
     )
 }
 
-fn create_http_client(client: &Client) -> TalkHttpClient<'static> {
+fn create_http_client(client: &Client, profile: ProtocolProfile) -> TalkHttpClient<'static> {
     TalkHttpClient::new(
-        create_config(get_system_info()),
+        profile.api_config(),
         Url::parse("https://katalk.kakao.com").unwrap(),
         client.0.clone(),
     )
-}
-
-fn create_config(info: &SystemInfo) -> Config<'_> {
-    Config {
-        language: info.device.language(),
-        version: TALK_VERSION,
-        agent: TALK_AGENT,
-    }
 }
 
 #[derive(Debug, Serialize)]
