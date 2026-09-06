@@ -1,3 +1,5 @@
+use std::fmt;
+
 use reqwest::{Method, RequestBuilder};
 use serde::Serialize;
 
@@ -5,7 +7,7 @@ use crate::{client::TalkHttpClient, RequestResult};
 
 use super::xvc::XvcHasher;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct AuthClient<'a, Xvc> {
     pub device: Device<'a>,
     pub xvc: Xvc,
@@ -31,7 +33,7 @@ impl<'a, Xvc: XvcHasher> AuthClient<'a, Xvc> {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Clone, Copy, Serialize)]
 pub struct Device<'a> {
     #[serde(rename = "device_name")]
     pub name: &'a str,
@@ -41,4 +43,14 @@ pub struct Device<'a> {
 
     #[serde(rename = "device_uuid")]
     pub uuid: &'a str,
+}
+
+impl fmt::Debug for Device<'_> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("Device")
+            .field("name", &self.name)
+            .field("model", &self.model)
+            .finish_non_exhaustive()
+    }
 }
