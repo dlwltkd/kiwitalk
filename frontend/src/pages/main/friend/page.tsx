@@ -12,11 +12,7 @@ export const FriendListPage = () => {
   const isReady = useReady();
 
   const friendList = useFriendList();
-  const [me] = createResource(async () => {
-    if (!isReady) return undefined;
-
-    return meProfile();
-  });
+  const [me] = createResource(isReady, async (ready) => ready ? meProfile() : undefined);
 
 
   return (
