@@ -1,6 +1,9 @@
+pub mod android;
 pub mod client;
 pub mod status;
 pub mod xvc;
+
+use std::fmt;
 
 use reqwest::Method;
 
@@ -13,23 +16,35 @@ use self::{
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Clone, Copy, Serialize)]
 pub struct AccountForm<'a> {
     pub email: &'a str,
     pub password: &'a str,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+impl fmt::Debug for AccountForm<'_> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("AccountForm")
+            .field("email", &self.email)
+            .finish_non_exhaustive()
+    }
+}
+
+#[derive(Clone, Deserialize)]
 pub struct Login {
     #[serde(rename = "userId")]
     pub user_id: u64,
 
     #[serde(rename = "countryIso")]
+    #[serde(default)]
     pub country_iso: String,
     #[serde(rename = "countryCode")]
+    #[serde(default)]
     pub country_code: String,
 
     #[serde(rename = "accountId")]
+    #[serde(default)]
     pub account_id: u64,
 
     // pub server_time: u64,
@@ -42,14 +57,34 @@ pub struct Login {
     pub token_type: String,
 
     #[serde(rename = "autoLoginAccountId")]
+    #[serde(default)]
     pub auto_login_account_id: String,
     #[serde(rename = "displayAccountId")]
+    #[serde(default)]
     pub display_account_id: String,
 
     #[serde(rename = "mainDeviceAgentName")]
+    #[serde(default)]
     pub main_device_agent_name: String,
     #[serde(rename = "mainDeviceAppVersion")]
+    #[serde(default)]
     pub main_device_app_version: String,
+}
+
+impl fmt::Debug for Login {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("Login")
+            .field("user_id", &self.user_id)
+            .field("country_iso", &self.country_iso)
+            .field("country_code", &self.country_code)
+            .field("account_id", &self.account_id)
+            .field("auto_login_account_id", &self.auto_login_account_id)
+            .field("display_account_id", &self.display_account_id)
+            .field("main_device_agent_name", &self.main_device_agent_name)
+            .field("main_device_app_version", &self.main_device_app_version)
+            .finish_non_exhaustive()
+    }
 }
 
 impl Login {
@@ -180,4 +215,38 @@ pub async fn register_device(
     .await?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{AccountForm, Login};
+
+    #[test]
+    fn login_accepts_response_without_unused_legacy_metadata() {
+        let login: Login = serde_json::from_value(serde_json::json!({
+            "userId": 42,
+            "access_token": "synthetic-access",
+            "refresh_token": "synthetic-refresh",
+            "token_type": "Bearer"
+        }))
+        .unwrap();
+
+        assert_eq!(login.user_id, 42);
+        assert!(login.auto_login_account_id.is_empty());
+        assert!(login.main_device_app_version.is_empty());
+
+        let debug = format!("{login:?}");
+        assert!(!debug.contains("synthetic-access"));
+        assert!(!debug.contains("synthetic-refresh"));
+    }
+
+    #[test]
+    fn account_debug_omits_the_password() {
+        let account = AccountForm {
+            email: "test@example.com",
+            password: "synthetic-password",
+        };
+
+        assert!(!format!("{account:?}").contains("synthetic-password"));
+    }
 }
