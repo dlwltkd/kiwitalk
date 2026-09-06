@@ -60,13 +60,20 @@ pub(super) async fn update_friends(
         added: res
             .added_friends
             .into_iter()
-            .map(|friend| ListFriend {
-                user_id: friend.user_id.to_string(),
-                nickname: friend.nickname,
-                user_type: friend.user_type,
-                user_category: friend.user_category,
-                status_message: friend.status_message,
-                profile_image_url: friend.profile_image_url,
+            .map(|friend| {
+                let nickname = friend
+                    .friend_nickname
+                    .filter(|nickname| !nickname.is_empty())
+                    .unwrap_or(friend.nickname);
+
+                ListFriend {
+                    user_id: friend.user_id.to_string(),
+                    nickname,
+                    user_type: friend.user_type,
+                    user_category: friend.user_category,
+                    status_message: friend.status_message,
+                    profile_image_url: friend.profile_image_url,
+                }
             })
             .collect(),
         removed_ids: res

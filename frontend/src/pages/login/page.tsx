@@ -7,9 +7,13 @@ import { LoginStepper } from './_components/login-stepper';
 
 import * as styles from './page.css';
 
+type LoginRouteState = {
+  error?: unknown;
+};
+
 export const LoginBasePage = () => {
   const [t] = useTransContext();
-  const location = useLocation();
+  const location = useLocation<LoginRouteState>();
   const navigate = useNavigate();
   const isBasePage = useMatch(() => '/login');
 
@@ -20,10 +24,21 @@ export const LoginBasePage = () => {
     if (!isBasePage()) return;
 
     if (loginData.state === 'ready') {
-      if (loginData().email) navigate('list');
+      if (loginData().email) {
+        const error = location.state?.error;
+        const sessionError = error instanceof Error
+          ? error.message
+          : typeof error === 'string'
+            ? error
+            : undefined;
+        navigate('list', {
+          replace: true,
+          state: sessionError ? { sessionError } : undefined,
+        });
+      }
       else {
         setEnableBack(false);
-        navigate('login');
+        navigate('login', { replace: true });
       }
     }
   });

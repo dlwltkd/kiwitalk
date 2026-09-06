@@ -1,10 +1,7 @@
 use anyhow::Context;
 use kiwi_talk_result::TauriResult;
 use serde::Serialize;
-use talk_api_internal::{
-    account::MoreSettings,
-    profile::{FriendInfo, Me as APIMeProfile},
-};
+use talk_api_internal::{account::MoreSettings, profile::FriendInfo};
 
 use crate::{
     auth::{CredentialExt, CredentialState},
@@ -52,19 +49,29 @@ pub(super) async fn me_profile(
         credential.profile,
     );
 
-    let more_settings = MoreSettings::request(api.clone())
-        .await
-        .context("more_settings api call failed")?;
+    let more_settings = match credential.more_settings {
+        Some(settings) => settings,
+        None => {
+            let settings = MoreSettings::request(api)
+                .await
+                .context("more_settings api call failed")?;
 
-    let me = APIMeProfile::request(api)
-        .await
-        .context("me api call failed")?;
+            if let Some(current) = cred
+                .write()
+                .as_mut()
+                .filter(|current| current.user_id == credential.user_id)
+            {
+                current.more_settings = Some(settings.clone());
+            }
+            settings
+        }
+    };
 
     Ok(MeProfile {
-        nickname: me.profile.nickname,
+        nickname: more_settings.nickname,
 
         uuid: more_settings.uuid,
-        uuid_searchable: more_settings.uuid_serachable,
+        uuid_searchable: more_settings.uuid_searchable,
 
         email: more_settings.email_address,
         email_verified: more_settings.email_verified,
@@ -72,10 +79,10 @@ pub(super) async fn me_profile(
         pstn_number: more_settings.pstn_number,
 
         profile: Profile {
-            id: me.profile.user_id.to_string(),
-            status_message: me.profile.status_message,
-            profile_url: me.profile.profile_image_url,
-            background_url: me.profile.background_image_url,
+            id: credential.user_id.to_string(),
+            status_message: more_settings.status_message,
+            profile_url: more_settings.profile_image_url,
+            background_url: String::new(),
         },
     })
 }

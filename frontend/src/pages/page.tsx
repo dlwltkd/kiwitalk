@@ -2,7 +2,7 @@ import { createResource, createEffect, on } from 'solid-js';
 import { Navigate, Route, useNavigate } from '@solidjs/router';
 import { useTransContext } from '@jellybrick/solid-i18next';
 
-import { logon } from '@/api/api';
+import { autoLogin, logon } from '@/api/api';
 import { useConfig } from '@/features/config';
 
 import { LoginBasePage } from './login';
@@ -17,27 +17,23 @@ import { FriendListPage } from './main/friend';
 import { TerminalPlaceholder } from './main/_components/placeholder';
 
 export const App = () => {
-  const [, { changeLanguage }] = useTransContext();
+  const [t, { changeLanguage }] = useTransContext();
   const [config] = useConfig();
   const navigate = useNavigate();
 
   const [isLogin, { refetch }] = createResource(async () => {
     if (await logon()) return true;
 
-    // TODO: implement auto login
-    // try {
-    //   const res = await autoLogin();
-    //   if (res.type === 'Success') {
-    //     if (res.content) return true;
-    //   } else {
-    //     throw t(`login.status.login.${res.content}`);
-    //   }
-    // } catch (err) {
-    //   console.error(err);
-    //   throw t(`login.reason.auto_login_failed.general`);
-    // }
+    let response;
+    try {
+      response = await autoLogin();
+    } catch (error) {
+      console.error(error);
+      throw new Error(t('login.reason.auto_login_failed.general'));
+    }
 
-    return false;
+    if (response.type === 'Success') return response.content;
+    throw new Error(t(`login.status.login.${response.content}`));
   });
 
   createEffect(on(config, (config) => {
@@ -51,9 +47,11 @@ export const App = () => {
   }));
 
   createEffect(() => {
-    if (isLogin() !== undefined) {
+    if (isLogin.state === 'ready') {
       if (isLogin()) navigate('/main');
-      else navigate('/login', { state: { error: isLogin.error } });
+      else navigate('/login');
+    } else if (isLogin.state === 'errored') {
+      navigate('/login', { state: { error: isLogin.error } });
     }
   });
 

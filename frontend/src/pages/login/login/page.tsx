@@ -22,6 +22,8 @@ export const LoginContentPage = () => {
 
   const [error, setError] = createSignal<string | null>(null);
   const [submitting, setSubmitting] = createSignal(false);
+  const [saveEmail, setSaveEmail] = createSignal(true);
+  const [autoLogin, setAutoLogin] = createSignal(false);
 
   createEffect((prevTimeout: number | undefined) => {
     if (typeof error() === 'string') {
@@ -48,8 +50,8 @@ export const LoginContentPage = () => {
     const form = {
       email: loginInput.value,
       password: passwordInput.value,
-      saveEmail: true, // input.saveId,
-      autoLogin: false, // input.autoLogin,
+      saveEmail: saveEmail(),
+      autoLogin: autoLogin(),
     };
     passwordInput.value = '';
     try {
@@ -90,6 +92,34 @@ export const LoginContentPage = () => {
         icon={<IconKey />}
         placeholder={t('login.password_placeholder')}
       />
+      <div class={styles.options}>
+        <label class={styles.option}>
+          <input
+            class={styles.checkbox}
+            type="checkbox"
+            checked={saveEmail()}
+            onChange={(event) => {
+              const checked = event.currentTarget.checked;
+              setSaveEmail(checked);
+              if (!checked) setAutoLogin(false);
+            }}
+          />
+          {t('login.save_id')}
+        </label>
+        <label class={styles.option}>
+          <input
+            class={styles.checkbox}
+            type="checkbox"
+            checked={autoLogin()}
+            onChange={(event) => {
+              const checked = event.currentTarget.checked;
+              setAutoLogin(checked);
+              if (checked) setSaveEmail(true);
+            }}
+          />
+          {t('login.auto_login_on_launch')}
+        </label>
+      </div>
       <Button disabled={submitting()}>
         {submitting() ? 'authenticating...' : t('login.login')}
       </Button>

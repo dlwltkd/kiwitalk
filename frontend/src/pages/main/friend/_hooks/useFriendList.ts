@@ -16,7 +16,7 @@ export const useFriendList = () => {
 
     for (const removed of res.removedIds) {
       const index = list.findIndex((friend) => friend.userId === removed);
-      list.splice(index, 1);
+      if (index >= 0) list.splice(index, 1);
     }
 
     for (const added of res.added) {

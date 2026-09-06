@@ -1,9 +1,8 @@
 //! Android subdevice authentication primitives.
 //!
-//! The wire format and default profile mirror KatokMCP's public Android
-//! implementation at commit `56ae3d40022e6431c33e382b2ff854c5b46a8a14`
-//! (2026-06-26):
-//! <https://github.com/mwl313/KatokMCP/blob/56ae3d40022e6431c33e382b2ff854c5b46a8a14/packages/loco-engine/src/auth/android.ts>
+//! The wire format is checked against KakaoTalk for Android 26.7.2. The
+//! default tablet identity remains configurable because model and Android
+//! release values come from the device at runtime in the Android app.
 //!
 //! This module intentionally exposes one request per operation. It does not
 //! automatically poll, sleep, cancel a challenge, print a passcode, or persist
@@ -32,9 +31,8 @@ use crate::{
 };
 
 pub const ANDROID_SUBDEVICE_MODEL: &str = "SM-X930";
-pub const ANDROID_SUBDEVICE_APP_VERSION: &str = "25.9.2";
+pub const ANDROID_SUBDEVICE_APP_VERSION: &str = "26.7.2";
 pub const ANDROID_SUBDEVICE_OS_VERSION: &str = "13";
-pub const ANDROID_SUBDEVICE_API_LEVEL: &str = "33";
 pub const ANDROID_SUBDEVICE_LANGUAGE: &str = "ko";
 
 pub const ANDROID_SUBDEVICE_XVC_FIRST_SEED: &str = "BARD";
@@ -56,7 +54,6 @@ pub struct AndroidSubdeviceProfile {
     pub model: &'static str,
     pub app_version: &'static str,
     pub os_version: &'static str,
-    pub api_level: &'static str,
     pub language: &'static str,
     pub xvc_first_seed: &'static str,
     pub xvc_second_seed: &'static str,
@@ -105,13 +102,11 @@ impl AndroidSubdeviceProfile {
     }
 }
 
-/// KatokMCP's Android compatibility profile, verified from its June 2026
-/// source snapshot.
+/// Android tablet compatibility profile with a 26.7.2 wire version.
 pub const ANDROID_SUBDEVICE_PROFILE: AndroidSubdeviceProfile = AndroidSubdeviceProfile {
     model: ANDROID_SUBDEVICE_MODEL,
     app_version: ANDROID_SUBDEVICE_APP_VERSION,
     os_version: ANDROID_SUBDEVICE_OS_VERSION,
-    api_level: ANDROID_SUBDEVICE_API_LEVEL,
     language: ANDROID_SUBDEVICE_LANGUAGE,
     xvc_first_seed: ANDROID_SUBDEVICE_XVC_FIRST_SEED,
     xvc_second_seed: ANDROID_SUBDEVICE_XVC_SECOND_SEED,
@@ -135,10 +130,7 @@ impl AndroidAuthClient<'_> {
         endpoint: &str,
         xvc_identity: &str,
     ) -> RequestResult<RequestBuilder> {
-        Ok(self
-            .inner
-            .request(method, endpoint, xvc_identity)?
-            .header(header::CONNECTION, "close"))
+        self.inner.request(method, endpoint, xvc_identity)
     }
 }
 
@@ -151,6 +143,22 @@ pub struct AndroidPasscodeChallenge {
     pub passcode: String,
     #[serde(rename = "remainingSeconds")]
     pub remaining_seconds: u64,
+}
+
+/// Tokens returned by the Android subdevice refresh form.
+pub struct AndroidTokenRefresh {
+    pub access_token: String,
+    pub refresh_token: String,
+    pub token_type: String,
+}
+
+impl fmt::Debug for AndroidTokenRefresh {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("AndroidTokenRefresh")
+            .field("token_type", &self.token_type)
+            .finish_non_exhaustive()
+    }
 }
 
 impl fmt::Debug for AndroidPasscodeChallenge {
@@ -248,7 +256,8 @@ pub async fn generate_passcode(
             name: device.name,
             uuid: device.uuid,
             model: device.model.unwrap_or(profile.model),
-            os_version: profile.api_level,
+            // KakaoTalk supplies Build.VERSION.RELEASE here, not SDK_INT.
+            os_version: profile.os_version,
         },
     };
 
@@ -365,6 +374,53 @@ pub async fn login(client: AndroidAuthClient<'_>, account: AccountForm<'_>) -> A
             .form(&form),
     )
     .await
+}
+
+/// Refresh an approved Android subdevice session without storing the account password.
+pub async fn refresh_access_token(
+    client: AndroidAuthClient<'_>,
+    email: &str,
+    refresh_token: &str,
+) -> ApiResult<AndroidTokenRefresh> {
+    #[derive(Serialize)]
+    struct RefreshForm<'a> {
+        email: &'a str,
+        refresh_token: &'a str,
+        device_uuid: &'a str,
+        device_name: &'a str,
+    }
+
+    #[derive(Deserialize)]
+    struct RefreshResponse {
+        access_token: String,
+        refresh_token: String,
+        #[serde(default = "default_token_type")]
+        token_type: String,
+    }
+
+    fn default_token_type() -> String {
+        "bearer".to_owned()
+    }
+
+    let device = client.inner.device;
+    let response: RefreshResponse = read_api_structured_response(
+        client
+            .request(Method::POST, "account/login.json", email)?
+            .header(header::CONTENT_TYPE, FORM_CONTENT_TYPE)
+            .form(&RefreshForm {
+                email,
+                refresh_token,
+                device_uuid: device.uuid,
+                device_name: device.name,
+            }),
+    )
+    .await?;
+
+    Ok(AndroidTokenRefresh {
+        access_token: response.access_token,
+        refresh_token: response.refresh_token,
+        token_type: response.token_type,
+    })
 }
 
 async fn read_http_structured_response<T: DeserializeOwned>(
@@ -575,8 +631,8 @@ mod tests {
             .full_xvc_hash(UUID, &user_agent, EMAIL);
         let truncated = hex::encode(&digest[..8]);
 
-        assert!(user_agent == "KT/25.9.2 An/13 ko");
-        assert!(truncated == "5496390f221823b4");
+        assert!(user_agent == "KT/26.7.2 An/13 ko");
+        assert!(truncated == "16772ed1f22d1654");
     }
 
     #[tokio::test]
@@ -587,7 +643,7 @@ mod tests {
         let request = captured.await.unwrap();
         let allowlist_digest = ANDROID_SUBDEVICE_PROFILE.xvc_hasher().full_xvc_hash(
             UUID,
-            "KT/25.9.2 An/13 ko",
+            "KT/26.7.2 An/13 ko",
             ALLOWLIST_XVC_IDENTITY,
         );
         let expected_xvc = hex::encode(&allowlist_digest[..8]);
@@ -596,15 +652,15 @@ mod tests {
         assert!(request.method == "GET");
         assert!(request.target == "/android/account/allowlist.json?model_name=SM-X930");
         assert!(request.body.is_empty());
-        assert!(header_is(&request, "user-agent", "KT/25.9.2 An/13 ko"));
-        assert!(header_is(&request, "a", "android/25.9.2/ko"));
+        assert!(header_is(&request, "user-agent", "KT/26.7.2 An/13 ko"));
+        assert!(header_is(&request, "a", "android/26.7.2/ko"));
         assert!(header_is(&request, "accept-language", "ko"));
         assert!(header_is(
             &request,
             "content-type",
             "application/x-www-form-urlencoded"
         ));
-        assert!(header_is(&request, "connection", "close"));
+        assert!(!request.headers.contains_key("connection"));
         assert!(header_is(&request, "x-vc", &expected_xvc));
     }
 
@@ -629,7 +685,7 @@ mod tests {
             "content-type",
             "application/json; charset=utf-8"
         ));
-        assert!(header_is(&request, "x-vc", "5496390f221823b4"));
+        assert!(header_is(&request, "x-vc", "16772ed1f22d1654"));
         assert!(body.get("email").and_then(serde_json::Value::as_str) == Some(EMAIL));
         assert!(body.get("password").and_then(serde_json::Value::as_str) == Some(PASSWORD));
         assert!(body.get("permanent").and_then(serde_json::Value::as_bool) == Some(true));
@@ -640,7 +696,7 @@ mod tests {
         assert!(device.get("name").and_then(serde_json::Value::as_str) == Some("SM-X930"));
         assert!(device.get("uuid").and_then(serde_json::Value::as_str) == Some(UUID));
         assert!(device.get("model").and_then(serde_json::Value::as_str) == Some("SM-X930"));
-        assert!(device.get("osVersion").and_then(serde_json::Value::as_str) == Some("33"));
+        assert!(device.get("osVersion").and_then(serde_json::Value::as_str) == Some("13"));
 
         let debug = format!("{challenge:?}");
         assert!(!debug.contains("654321"));
@@ -760,6 +816,37 @@ mod tests {
         assert!(form.get("forced").map(String::as_str) == Some("false"));
         assert!(form.get("permanent").map(String::as_str) == Some("true"));
         assert!(!form.contains_key("model_name"));
+    }
+
+    #[tokio::test]
+    async fn refresh_uses_android_session_form_and_rotated_token() {
+        let (url, captured) = mock_response(
+            "200 OK",
+            r#"{"status":0,"access_token":"new-access","refresh_token":"new-refresh","token_type":"bearer"}"#,
+        )
+        .await;
+
+        let refreshed = refresh_access_token(client(url), EMAIL, "old-refresh")
+            .await
+            .unwrap();
+        let request = captured.await.unwrap();
+        let form: HashMap<_, _> = url::form_urlencoded::parse(&request.body)
+            .into_owned()
+            .collect();
+
+        assert_eq!(refreshed.access_token, "new-access");
+        assert_eq!(refreshed.refresh_token, "new-refresh");
+        assert_eq!(refreshed.token_type, "bearer");
+        assert_eq!(request.target, "/android/account/login.json");
+        assert_eq!(form.get("email").map(String::as_str), Some(EMAIL));
+        assert_eq!(
+            form.get("refresh_token").map(String::as_str),
+            Some("old-refresh")
+        );
+        assert_eq!(form.get("device_uuid").map(String::as_str), Some(UUID));
+        assert_eq!(form.get("device_name").map(String::as_str), Some("SM-X930"));
+        assert!(!form.contains_key("password"));
+        assert!(!format!("{refreshed:?}").contains("new-access"));
     }
 
     #[tokio::test]

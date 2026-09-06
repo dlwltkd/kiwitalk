@@ -31,3 +31,32 @@ export const caption = style({
   lineHeight: '14px',
   textTransform: 'uppercase',
 });
+
+export const options = style({
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: '8px 18px',
+  padding: '3px 1px 5px',
+});
+
+export const option = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '7px',
+  color: vars.color.terminal.foregroundMuted,
+  fontSize: '11px',
+  cursor: 'pointer',
+  selectors: {
+    '&:hover': {
+      color: vars.color.terminal.foregroundBright,
+    },
+  },
+});
+
+export const checkbox = style({
+  width: '13px',
+  height: '13px',
+  margin: 0,
+  accentColor: vars.color.terminal.accentBright,
+  cursor: 'pointer',
+});

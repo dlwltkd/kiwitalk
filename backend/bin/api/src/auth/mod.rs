@@ -12,15 +12,15 @@ use kiwi_talk_system::get_system_info;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use talk_api_internal::{
+    account::MoreSettings,
     auth::{
         android::{
             cancel_registration, check_allowlist, generate_passcode, login as android_login,
-            poll_registration_once, AndroidAuthClient, AndroidPasscodeChallenge,
-            AndroidRegistrationPoll,
+            poll_registration_once, refresh_access_token, AndroidAuthClient,
+            AndroidPasscodeChallenge, AndroidRegistrationPoll,
         },
         status, AccountForm, Login,
     },
-    profile::Me as APIMeProfile,
     ApiError,
 };
 use tauri::{AppHandle, Manager, Runtime};
@@ -33,7 +33,7 @@ use crate::{
     result_to_response, Client, ClientState, Response,
 };
 
-use self::account::SavedAccount;
+use self::account::{SavedAccount, SavedSession};
 
 const REGISTRATION_EXPIRY_TOLERANCE_SECONDS: u64 = 5;
 
@@ -44,20 +44,30 @@ pub(super) fn logon(state: CredentialState<'_>) -> bool {
 
 #[tauri::command(async)]
 pub(super) async fn default_login_form() -> Result<LoginDetailForm, ()> {
-    Ok(account::read()
-        .await
-        .map(|data| match data {
-            Some(data) => LoginDetailForm {
+    let saved_account = account::read().await.unwrap_or_default();
+    let saved_session = account::read_session().await.unwrap_or_default();
+
+    Ok(match saved_account {
+        Some(data) => {
+            let current_uuid = get_system_info()
+                .device
+                .device_uuid
+                .android_subdevice_uuid();
+            let auto_login = saved_session.as_ref().is_some_and(|session| {
+                session.email == data.email && session.device_uuid == current_uuid
+            });
+
+            LoginDetailForm {
                 profile: data.profile,
                 name: data.name,
                 email: data.email,
                 password: String::new(),
                 save_email: true,
-                auto_login: false,
-            },
-            None => Default::default(),
-        })
-        .unwrap_or_default())
+                auto_login,
+            }
+        }
+        None => Default::default(),
+    })
 }
 
 #[tauri::command(async)]
@@ -247,12 +257,68 @@ pub(super) async fn logout(
         let _ = cancel_pending(&client, &registration).await;
     }
 
+    account::write_session(None)
+        .await
+        .context("could not clear the saved Android login session")?;
+
     Ok(cred.write().take().is_some())
 }
 
-#[tauri::command]
-pub(super) fn auto_login() -> Response<bool> {
-    Response::Success(false)
+#[tauri::command(async)]
+pub(super) async fn auto_login(
+    cred: CredentialState<'_>,
+    client: ClientState<'_>,
+) -> TauriResult<Response<bool>> {
+    if cred.read().is_some() {
+        return Ok(Response::Success(true));
+    }
+
+    let Some(mut session) = account::read_session()
+        .await
+        .context("could not read the saved Android login session")?
+    else {
+        return Ok(Response::Success(false));
+    };
+
+    let device_uuid = get_system_info()
+        .device
+        .device_uuid
+        .android_subdevice_uuid();
+    if session.device_uuid != device_uuid {
+        account::write_session(None)
+            .await
+            .context("could not clear a login session for another device")?;
+        return Ok(Response::Success(false));
+    }
+
+    let profile = ACTIVE_PROTOCOL_PROFILE;
+    let auth = create_auth_client(&client, &device_uuid, profile);
+    let refreshed = match result_to_response(
+        refresh_access_token(auth, &session.email, &session.refresh_token).await,
+    )
+    .context("Android session refresh failed")?
+    {
+        Response::Success(refreshed) => refreshed,
+        Response::Failure(code) => return Ok(Response::Failure(code)),
+    };
+
+    let user_id = session.user_id;
+    session.refresh_token.zeroize();
+    session.refresh_token = refreshed.refresh_token.clone();
+    account::write_session(Some(session))
+        .await
+        .context("could not persist the rotated Android login session")?;
+
+    *cred.write() = Some(Credential {
+        user_id,
+        device_uuid,
+        profile,
+        access_token: Zeroizing::new(refreshed.access_token),
+        _refresh_token: Zeroizing::new(refreshed.refresh_token),
+        more_settings: None,
+    });
+
+    Ok(Response::Success(true))
 }
 
 pub(super) fn init(app: &AppHandle<impl Runtime>) {
@@ -273,29 +339,46 @@ async fn finish_login(
     } else {
         login.auto_login_account_id.as_str()
     };
-    let (cached_profile, cached_name) = if form.save_email {
+    let save_email = form.save_email || form.auto_login;
+    let cached_settings = if save_email {
         let api = create_api_client(client, &login.access_token, &device_uuid, profile);
-        match APIMeProfile::request(api).await {
-            Ok(me) => (me.profile.profile_image_url, me.profile.nickname),
+        match MoreSettings::request(api).await {
+            Ok(settings) => Some(settings),
             Err(_) => {
                 log::warn!(
                     "profile lookup failed after successful Android login; continuing without cached profile"
                 );
-                (String::new(), String::new())
+                None
             }
         }
     } else {
-        (String::new(), String::new())
+        None
     };
 
-    let saved = form.save_email.then(|| SavedAccount {
-        profile: cached_profile,
-        name: cached_name,
+    let saved = save_email.then(|| SavedAccount {
+        profile: cached_settings
+            .as_ref()
+            .map(|settings| settings.profile_image_url.clone())
+            .unwrap_or_default(),
+        name: cached_settings
+            .as_ref()
+            .map(|settings| settings.nickname.clone())
+            .unwrap_or_default(),
         email: account_email.to_owned(),
         token: None,
     });
     if account::write(saved).await.is_err() {
         log::warn!("could not update saved account metadata after Android login");
+    }
+
+    let saved_session = form.auto_login.then(|| SavedSession {
+        email: account_email.to_owned(),
+        user_id: login.user_id,
+        device_uuid: device_uuid.clone(),
+        refresh_token: login.refresh_token.clone(),
+    });
+    if account::write_session(saved_session).await.is_err() {
+        log::warn!("could not update the saved Android login session");
     }
 
     *cred.write() = Some(Credential {
@@ -304,6 +387,7 @@ async fn finish_login(
         profile,
         access_token: Zeroizing::new(login.access_token),
         _refresh_token: Zeroizing::new(login.refresh_token),
+        more_settings: cached_settings,
     });
 }
 
@@ -345,11 +429,12 @@ fn validate_challenge(challenge: &AndroidPasscodeChallenge) -> anyhow::Result<()
 }
 
 pub struct Credential {
-    user_id: u64,
+    pub(crate) user_id: u64,
     device_uuid: String,
     profile: ProtocolProfile,
     access_token: Zeroizing<String>,
     _refresh_token: Zeroizing<String>,
+    pub(crate) more_settings: Option<MoreSettings>,
 }
 
 impl fmt::Debug for Credential {
@@ -367,6 +452,7 @@ pub struct CredentialSnapshot {
     pub device_uuid: String,
     pub profile: ProtocolProfile,
     pub access_token: Zeroizing<String>,
+    pub more_settings: Option<MoreSettings>,
 }
 
 impl Credential {
@@ -376,6 +462,7 @@ impl Credential {
             device_uuid: self.device_uuid.clone(),
             profile: self.profile,
             access_token: self.access_token.clone(),
+            more_settings: self.more_settings.clone(),
         }
     }
 }

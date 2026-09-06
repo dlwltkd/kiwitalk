@@ -52,7 +52,7 @@ impl ProtocolProfile {
     }
 
     pub const fn device_type(self) -> Option<i8> {
-        Some(0)
+        None
     }
 
     pub const fn revision(self) -> Option<i32> {
@@ -68,7 +68,11 @@ impl ProtocolProfile {
     }
 
     pub const fn last_chat_id(self) -> Option<i64> {
-        Some(0)
+        None
+    }
+
+    pub const fn is_switching(self) -> Option<bool> {
+        Some(false)
     }
 
     pub const fn use_sub(self) -> bool {
@@ -85,14 +89,15 @@ mod tests {
         let profile = ACTIVE_PROTOCOL_PROFILE;
 
         assert_eq!(profile.os(), "android");
-        assert_eq!(profile.app_version(), "25.9.2");
+        assert_eq!(profile.app_version(), "26.7.2");
         assert_eq!(profile.model(), "SM-X930");
         assert_eq!(profile.api_config().agent.agent(), profile.os());
         assert_eq!(profile.protocol_version(), "1");
-        assert_eq!(profile.device_type(), Some(0));
+        assert_eq!(profile.device_type(), None);
         assert_eq!(profile.revision(), Some(0));
         assert!(!profile.include_pc_status());
         assert_eq!(profile.background(), Some(false));
-        assert_eq!(profile.last_chat_id(), Some(0));
+        assert_eq!(profile.last_chat_id(), None);
+        assert_eq!(profile.is_switching(), Some(false));
     }
 }

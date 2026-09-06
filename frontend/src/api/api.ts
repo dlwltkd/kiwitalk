@@ -21,27 +21,52 @@ export function logon(): Promise<boolean> {
 }
 
 export function autoLogin(): Promise<Response<boolean>> {
-  return invoke('plugin:api|auto_login');
+  return invoke<Response<boolean>>('plugin:api|auto_login').then((response) => {
+    if (response.type === 'Success' && response.content) clearMeProfileCache();
+    return response;
+  });
 }
 
 export function login(form: LoginForm): Promise<Response<LoginOutcome>> {
-  return invoke('plugin:api|login', { form });
+  return invoke<Response<LoginOutcome>>('plugin:api|login', { form }).then((response) => {
+    if (response.type === 'Success' && response.content.type === 'Authenticated') {
+      clearMeProfileCache();
+    }
+    return response;
+  });
 }
 
 export function logout(): Promise<boolean> {
+  clearMeProfileCache();
   return invoke('plugin:api|logout');
 }
 
 export function pollAndroidRegistration(id: string): Promise<Response<RegistrationOutcome>> {
-  return invoke('plugin:api|poll_android_registration', { id });
+  return invoke<Response<RegistrationOutcome>>('plugin:api|poll_android_registration', { id })
+    .then((response) => {
+      if (response.type === 'Success' && response.content.type === 'Authenticated') {
+        clearMeProfileCache();
+      }
+      return response;
+    });
 }
 
 export function cancelAndroidRegistration(id: string): Promise<Response<boolean>> {
   return invoke('plugin:api|cancel_android_registration', { id });
 }
 
+let meProfileRequest: Promise<LogonProfile> | undefined;
+
+function clearMeProfileCache() {
+  meProfileRequest = undefined;
+}
+
 export function meProfile(): Promise<LogonProfile> {
-  return invoke('plugin:api|me_profile');
+  meProfileRequest ??= invoke<LogonProfile>('plugin:api|me_profile').catch((error) => {
+    clearMeProfileCache();
+    throw error;
+  });
+  return meProfileRequest;
 }
 
 export function friendProfile(id: string): Promise<UserProfile> {
