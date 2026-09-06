@@ -39,18 +39,18 @@ impl<'a> UserProfileRow<'a> {
 pub struct UserProfileUpdate<'a> {
     pub nickname: &'a str,
 
-    pub profile_url: &'a str,
-    pub full_profile_url: &'a str,
-    pub original_profile_url: &'a str,
+    pub profile_url: Option<&'a str>,
+    pub full_profile_url: Option<&'a str>,
+    pub original_profile_url: Option<&'a str>,
 }
 
 impl<'a> From<&'a channel::normal::user::User> for UserProfileUpdate<'a> {
     fn from(user: &'a channel::normal::user::User) -> Self {
         Self {
             nickname: &user.nickname,
-            profile_url: &user.profile_image_url,
-            full_profile_url: &user.full_profile_image_url,
-            original_profile_url: &user.original_profile_image_url,
+            profile_url: user.profile_image_url_if_present(),
+            full_profile_url: user.full_profile_image_url_if_present(),
+            original_profile_url: user.original_profile_image_url_if_present(),
         }
     }
 }
