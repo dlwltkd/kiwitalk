@@ -1,0 +1,5 @@
+{
+  "exclude": ["frontend/src/**/*.stories.tsx"],
+  "extends": "./tsconfig.json",
+  "include": ["frontend/src"]
+}
