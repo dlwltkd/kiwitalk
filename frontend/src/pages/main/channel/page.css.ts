@@ -1,18 +1,52 @@
-import { style } from '@vanilla-extract/css';
+import { style, styleVariants } from '@vanilla-extract/css';
+
+import { vars } from '@/features/theme';
 
 export const container = style({
   width: '100%',
   height: '100%',
+  minHeight: 0,
+  display: 'grid',
+  gridTemplateColumns: 'minmax(260px, 32ch) minmax(0, 1fr)',
+  background: vars.color.terminal.background,
 
-  display: 'flex',
-  flexDirection: 'row',
-  justifyContent: 'flex-start',
-  alignItems: 'stretch',
-  gap: '12px',
+  '@media': {
+    'screen and (max-width: 720px)': {
+      gridTemplateColumns: 'minmax(0, 1fr)',
+    },
+  },
 });
 
-export const list = style({
-  minWidth: '240px',
-  maxWidth: '360px',
-  height: '100%',
+const listBase = style({
+  minWidth: 0,
+  minHeight: 0,
+  borderRight: `1px solid ${vars.color.terminal.border}`,
+});
+
+export const list = styleVariants({
+  channelList: [listBase],
+  channelOpen: [listBase, {
+    '@media': {
+      'screen and (max-width: 720px)': {
+        display: 'none',
+      },
+    },
+  }],
+});
+
+const detailBase = style({
+  minWidth: 0,
+  minHeight: 0,
+  overflow: 'hidden',
+});
+
+export const detail = styleVariants({
+  channelOpen: [detailBase],
+  channelList: [detailBase, {
+    '@media': {
+      'screen and (max-width: 720px)': {
+        display: 'none',
+      },
+    },
+  }],
 });
