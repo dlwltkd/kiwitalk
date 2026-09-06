@@ -82,3 +82,59 @@ pub enum ChatOnChannelUsers<T> {
     #[serde(rename = "m")]
     Users(Vec<T>),
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn accepts_sparse_android_room_members() {
+        let room: ChatOnChannel = bson::from_document(bson::doc! {
+            "t": "MultiChat",
+            "m": [{
+                "userId": 100_i64,
+                "nickName": "peer",
+                "profileImageUrl": bson::Bson::Null,
+                "statusMessage": bson::Bson::Null,
+            }],
+            "l": 2_i64,
+            "o": 0_i64,
+        })
+        .unwrap();
+
+        let ChatOnChannelType::MultiChat(normal) = room.channel_type else {
+            panic!("expected a normal multi-chat room");
+        };
+        let ChatOnChannelUsers::Users(users) = normal.users else {
+            panic!("expected full member records");
+        };
+
+        assert_eq!(users.len(), 1);
+        assert!(users[0].linked_services.is_empty());
+        assert!(users[0].profile_image_url.is_empty());
+        assert_eq!(users[0].account_id, 0);
+        assert_eq!(users[0].profile_image_url_if_present(), None);
+        assert_eq!(users[0].status_message_if_present(), None);
+        assert_eq!(users[0].account_id_if_present(), None);
+        assert_eq!(users[0].suspended_if_present(), None);
+    }
+
+    #[test]
+    fn distinguishes_explicit_default_values_from_missing_fields() {
+        let user: normal::user::User = bson::from_document(bson::doc! {
+            "userId": 100_i64,
+            "nickName": "peer",
+            "profileImageUrl": "",
+            "accountId": 0_i64,
+            "statusMessage": "",
+            "suspended": false,
+        })
+        .unwrap();
+
+        assert_eq!(user.profile_image_url_if_present(), Some(""));
+        assert_eq!(user.account_id_if_present(), Some(0));
+        assert_eq!(user.status_message_if_present(), Some(""));
+        assert_eq!(user.suspended_if_present(), Some(false));
+        assert_eq!(user.linked_services_if_present(), None);
+    }
+}
