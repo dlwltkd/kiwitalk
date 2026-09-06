@@ -3,24 +3,13 @@ import { Trans } from '@jellybrick/solid-i18next';
 import { Button } from '@/ui-common/button';
 
 import * as styles from './page.css';
-import { useLocation, useNavigate } from '@solidjs/router';
-import { loginWithResult } from '@/api';
+import { useNavigate } from '@solidjs/router';
 
 export const LoginEndPage = () => {
   const navigate = useNavigate();
-  const location = useLocation<{ email?: string; password?: string; }>();
-  const input = () => location.state;
 
-  const onStart = async () => {
-    const result = await loginWithResult({
-      email: input()?.email ?? '',
-      password: input()?.password ?? '',
-      saveEmail: true,
-      autoLogin: false,
-    });
-
-    if (result.type === 'Success') navigate('/main');
-    else navigate('/login');
+  const onStart = () => {
+    navigate('/main');
   };
 
   return (
