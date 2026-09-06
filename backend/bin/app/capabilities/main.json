@@ -1,0 +1,26 @@
+{
+  "description": "Permissions required by the KiwiTalk main window",
+  "identifier": "main",
+  "permissions": [
+    "core:default",
+    "core:window:allow-close",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-start-dragging",
+    "api:default",
+    "client:default",
+    "configuration:default",
+    "system:default",
+    "log:default",
+    "notification:allow-is-permission-granted",
+    "window-state:default",
+    {
+      "allow": [
+        { "url": "http://item-kr.talk.kakao.co.kr/**" },
+        { "url": "https://item-kr.talk.kakao.co.kr/**" }
+      ],
+      "identifier": "http:default"
+    }
+  ],
+  "windows": ["main"]
+}
