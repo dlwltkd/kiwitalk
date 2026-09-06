@@ -13,9 +13,28 @@ export type LoginDetailForm = LoginForm & {
   name: string;
 };
 
+export type VerificationChallenge = {
+  id: string;
+  passcode: string;
+  remainingSeconds: number;
+};
+
+export type LoginOutcome = { type: 'Authenticated' }
+  | { type: 'VerificationRequired', content: VerificationChallenge };
+
+export type RegistrationOutcome = {
+  type: 'Pending';
+  content: {
+    remainingSeconds: number;
+    nextRequestIntervalSeconds: number;
+  };
+} | { type: 'Authenticated' }
+  | { type: 'Expired' }
+  | { type: 'Stale' };
+
 export type LoginResult = { type: 'Success'; }
-  | { type: 'NeedRegister' }
-  | { type: 'Error', key: string; forced?: boolean, detail?: unknown; };
+  | { type: 'NeedRegister', challenge: VerificationChallenge }
+  | { type: 'Error', key: string; forced?: boolean; };
 
 /** @deprecated */
 export type LogoutReason = {
