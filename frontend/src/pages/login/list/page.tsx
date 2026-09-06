@@ -1,10 +1,8 @@
-import { TransitionGroup } from 'solid-transition-group';
-import { useNavigate, useRouteData } from '@solidjs/router';
+import { useLocation, useNavigate, useRouteData } from '@solidjs/router';
 import { Show, createResource, createSignal } from 'solid-js';
-import { Trans, useTransContext } from '@jellybrick/solid-i18next';
+import { useTransContext } from '@jellybrick/solid-i18next';
 
 import { LoginDetailForm, defaultLoginForm, loginWithResult } from '@/api';
-import { classes } from '@/features/theme';
 
 import { Button } from '@/ui-common/button';
 import { Input } from '@/ui-common/input';
@@ -15,15 +13,22 @@ import * as styles from './page.css';
 
 import IconKey from '../_assets/icons/key.svg';
 
+type LoginListRouteState = {
+  sessionError?: string;
+};
+
 export const LoginListPage = () => {
   const [t] = useTransContext();
   const navigate = useNavigate();
+  const location = useLocation<LoginListRouteState>();
   const refreshLoginState = useRouteData<() => () => void>();
 
   let passwordInput: HTMLInputElement | null = null;
   const [selectedLoginData, setSelectedLoginData] = createSignal<LoginDetailForm | null>(null);
-  const [error, setError] = createSignal<string | null>(null);
-  const [forced, setForced] = createSignal(false);
+  const [error, setError] = createSignal<string | null>(
+    location.state?.sessionError ?? null,
+  );
+  const [submitting, setSubmitting] = createSignal(false);
 
   const [loginData] = createResource(async () => defaultLoginForm());
 
@@ -46,43 +51,43 @@ export const LoginListPage = () => {
       return;
     }
 
-    const result = await loginWithResult({
+    if (submitting()) return;
+    setSubmitting(true);
+    const form = {
       email: data.email,
       password: passwordInput.value,
       saveEmail: data.saveEmail,
       autoLogin: data.autoLogin,
-    }, forced());
+    };
+    passwordInput.value = '';
+    try {
+      const result = await loginWithResult(form);
 
-    if (result.type === 'Success') {
-      refreshLoginState();
-      navigate('/');
-    } else if (result.type === 'NeedRegister') {
-      navigate('../device-register', {
-        state: {
-          email: data.email,
-          password: passwordInput.value,
-        },
-      });
-    } else {
-      if (result.forced) setForced(true);
-
-      setError(t(result.key));
+      if (result.type === 'Success') {
+        refreshLoginState();
+        navigate('/');
+      } else if (result.type === 'NeedRegister') {
+        navigate('../device-register', {
+          state: { challenge: result.challenge },
+        });
+      } else {
+        setError(t(result.key));
+        setSubmitting(false);
+      }
+    } catch {
+      setError(t('login.reason.auto_login_failed.general'));
+      setSubmitting(false);
     }
   };
 
   return (
     <form class={styles.container} onSubmit={onLogin}>
-      <div>
-        <span class={styles.title.normal}>Kiwi</span>
-        <span class={styles.title.bold}>Talk</span>
+      <div class={styles.heading}>
+        <span class={styles.command}>$ auth --saved</span>
+        <span class={styles.caption}>select the local account, then enter its password</span>
       </div>
       <ErrorTip message={error()} />
-      <LoginCard
-        profile={loginData()?.profile}
-        name={loginData()?.name}
-        email={loginData()?.email}
-        onClick={onToggleLoginData}
-      />
+      <LoginCard selected={!!selectedLoginData()} onClick={onToggleLoginData} />
       <Show when={selectedLoginData()} keyed>
         <Input
           ref={(element) => passwordInput = element}
@@ -92,21 +97,14 @@ export const LoginListPage = () => {
         />
       </Show>
       <div class={styles.tool}>
-        <TransitionGroup appear {...classes.transition.scale}>
-          <Show when={!selectedLoginData()}>
-            <Button variant={'text'} type='button'>
-              <Trans key={'login.manage_account'} />
-            </Button>
-          </Show>
-          <Button variant={'text'} type='button' onClick={onAddAccount}>
-            <Trans key={'login.add_account'} />
+        <Button variant="text" type="button" onClick={onAddAccount}>
+          + {t('login.add_account')}
+        </Button>
+        <Show when={!!selectedLoginData()}>
+          <Button disabled={submitting()}>
+            {submitting() ? 'authenticating...' : t('login.login')}
           </Button>
-          <Show when={!!selectedLoginData()}>
-            <Button>
-              <Trans key={'login.login_name'} options={{ name: selectedLoginData()?.name }} />
-            </Button>
-          </Show>
-        </TransitionGroup>
+        </Show>
       </div>
     </form>
   );
