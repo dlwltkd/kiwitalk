@@ -22,12 +22,21 @@
     "passcode_placeholder": "Enter Registration Code",
     "passcode_tip": "KakaoTalk App: Settings > Privacy > Manage Devices",
     "password_placeholder": "Password",
+    "registration_code_label": "KakaoTalk verification code",
+    "registration_expired": "The verification code expired. Go back and sign in again to generate a new one.",
+    "registration_instruction": "Enter this code in the verification prompt in the KakaoTalk app on your phone.",
+    "registration_network_error": "The approval check was interrupted. KiwiTalk will keep retrying until the code expires.",
+    "registration_stale": "This verification request is no longer active. Go back and sign in again.",
+    "registration_waiting": "Waiting for approval · {{seconds}} seconds remaining",
     "reason": {
       "auto_login_failed": {
         "file_read": "An error occurred while reading the stored account information",
         "general": "Automatic sign-in has failed"
       },
+      "database_busy": "The local chat database is busy. Close any other KiwiTalk window and try again.",
       "kickout": "Logged out due to access from another device",
+      "network_error": "KiwiTalk could not reach Kakao's login service. Check your connection and try again.",
+      "network_timeout": "Kakao's login service timed out. Check your connection and try again.",
       "required_id_password": "Please enter your account ID and password."
     },
     "register_title": "Device Authentication",
@@ -41,6 +50,7 @@
     "start": "Start",
     "status": {
       "device_register": {
+        "-111": "The verification request is no longer valid.",
         "-112": "Exceeded the number of daily registration attempts."
       },
       "login": {
@@ -68,7 +78,7 @@
       }
     },
     "title": "Sign in with Kakao Account",
-    "unknown_error": "An unknown error has occurred. {{detail}}"
+    "unknown_error": "KiwiTalk could not complete the native login request. Try again."
   },
   "main": {
     "chat": {
