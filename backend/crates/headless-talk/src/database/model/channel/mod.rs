@@ -1,3 +1,4 @@
+pub mod history_sync;
 pub mod meta;
 pub mod normal;
 
