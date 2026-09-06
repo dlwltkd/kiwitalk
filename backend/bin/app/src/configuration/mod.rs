@@ -39,7 +39,7 @@ pub(super) async fn init_plugin<R: Runtime>(name: &'static str) -> anyhow::Resul
     let config_path: ConfigPath = ConfigPath(get_system_info().data_dir.join("configuration.json"));
 
     Ok(Builder::new(name)
-        .setup(|handle| {
+        .setup(|handle, _api| {
             handle.manage(config_path);
 
             Ok(())
