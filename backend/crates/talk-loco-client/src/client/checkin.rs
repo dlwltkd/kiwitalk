@@ -60,6 +60,10 @@ pub struct CheckinReq<'a> {
     /// Subdevice(PC, Tablet) or not
     #[serde(rename = "useSub")]
     pub use_sub: bool,
+
+    /// Device model used by Android subdevices.
+    #[serde(rename = "deviceName", skip_serializing_if = "Option::is_none")]
+    pub device_name: Option<&'a str>,
 }
 
 /// Answer loco server information
