@@ -8,17 +8,18 @@ export const container = style({
   flexDirection: 'row',
   justifyContent: 'flex-start',
   alignItems: 'center',
-  gap: '16px',
+  gap: '8px',
 
-  padding: '6px 0',
+  padding: '4px 0',
 });
 
 export const iconWrapper = style({
-  padding: '12px',
-  fontSize: '36px',
+  padding: '6px',
+  fontSize: '18px',
 
-  color: vars.color.primary.fillPrimary,
-  backgroundColor: vars.color.primary.elevated,
+  color: vars.color.terminal.accentBright,
+  backgroundColor: vars.color.terminal.surfaceRaised,
+  border: `1px solid ${vars.color.terminal.border}`,
   borderRadius: vars.radius.small,
 });
 
@@ -32,11 +33,11 @@ export const content = style({
 });
 
 export const title = style([classes.typography.title, {
-  color: vars.color.primary.fillPrimary,
+  color: vars.color.terminal.foreground,
 }]);
 
 export const infoContainer = style([classes.typography.body, {
-  color: vars.color.primary.fillSecondary,
+  color: vars.color.terminal.foregroundMuted,
 
   display: 'flex',
   flexDirection: 'row',
@@ -50,5 +51,5 @@ export const infoDivider = style({
   height: '6px',
 
   borderRadius: vars.radius.full,
-  backgroundColor: vars.color.primary.fillSecondary,
+  backgroundColor: vars.color.terminal.borderStrong,
 });
