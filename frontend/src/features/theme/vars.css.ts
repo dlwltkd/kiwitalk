@@ -2,81 +2,76 @@ import { createTheme, style } from '@vanilla-extract/css';
 
 const [themeClass, baseVars] = createTheme({
   color: {
-    /* red */
-    red400: '#ff4e4e',
+    red400: '#ff5345',
+    yellow400: '#e5c736',
+    blue100: '#111c18',
+    blue200: '#182720',
+    blue400: '#509475',
+    blue500: '#63b07a',
 
-    /* blue */
-    blue100: '#1c1c22',
-    blue200: '#1f2634',
-    blue400: '#226cff',
-    blue500: '#618ee7',
+    terminal: {
+      background: '#090f0d',
+      surface: '#0c1512',
+      surfaceRaised: '#111c18',
+      surfaceHover: '#182720',
+      border: '#23372b',
+      borderStrong: '#53685b',
+      foreground: '#c1c497',
+      foregroundBright: '#f7e8b2',
+      foregroundMuted: '#81b8a8',
+      accent: '#509475',
+      accentBright: '#2dd5b7',
+      selection: '#32473b',
+    },
 
-    /* neutral */
     neutral: {
       black: '#000000',
       white: '#ffffff',
-
-      /* grey */
-      grey800: '#e3e3e3',
-
-      /* alpha */
-      lightAlpha050: 'rgba(255, 255, 255, .05)',
-      lightAlpha100: 'rgba(255, 255, 255, .1)',
-      lightAlpha300: 'rgba(255, 255, 255, .3)',
-      lightAlpha500: 'rgba(255, 255, 255, .5)',
-
-      darkAlpha200: 'rgba(0, 0, 0, .2)',
-      darkAlpha500: 'rgba(0, 0, 0, .5)',
+      grey800: '#c1c497',
+      lightAlpha050: 'rgba(193, 196, 151, .05)',
+      lightAlpha100: 'rgba(193, 196, 151, .1)',
+      lightAlpha300: 'rgba(193, 196, 151, .3)',
+      lightAlpha500: 'rgba(193, 196, 151, .62)',
+      darkAlpha200: 'rgba(9, 15, 13, .78)',
+      darkAlpha500: 'rgba(9, 15, 13, .94)',
     },
   },
   blur: {
-    regular: 'blur(10px)',
-    large: 'blur(20px)',
+    regular: 'none',
+    large: 'none',
   },
   shadow: {
-    regular: '0 4px 24px 0 rgba(0, 0, 0, .25)',
+    regular: 'none',
   },
   radius: {
-    extraSmall: '6px',
-    small: '10px',
-    regular: '18px',
-    large: '20px',
+    extraSmall: '2px',
+    small: '3px',
+    regular: '4px',
+    large: '6px',
     full: '999px',
   },
   layer: {
-    /** 가장 아래에 깔리는 layer */
     hidden: '-100',
-
-    /** 기본값 */
     base: '0',
-    /** 대상보다 상단 */
     above: '1',
-    /** 대상보다 하단 */
     below: '-1',
-
-    /** Surface중 최상단 layer */
     head: '100',
-    /** surface 전체를 덮는 Backdrop layer */
     backdrop: '500',
-    /** Modal, Dialog가 사용하는 layer*/
     modal: '1000',
-    /** 어느 위치에서든 보여야 하는 layer */
     tooltip: '2000',
-
-    /** 최상단 레벨 이 이상의 값은 존재할수 없음 */
     windowFrame: '10000',
   },
   opacity: {
-    hover: '0.7',
+    hover: '0.82',
   },
   easing: {
-    background: `cubic-bezier(0.55, 0.15, 0.25, 0.95) .4s`,
-    fill: `cubic-bezier(0.60, 0.05, 0.60, 1.00) .4s`,
-    transform: `cubic-bezier(0.16, 1, 0.3, 1) .6s`,
-    linear: 'linear .4s',
+    background: 'ease-out 100ms',
+    fill: 'ease-out 100ms',
+    transform: 'ease-out 100ms',
+    linear: 'linear 100ms',
   },
   font: {
-    ui: '"Pretendard Variable", sans-serif',
+    ui: '"JetBrainsMono Nerd Font", "JetBrains Mono", "Pretendard Variable", monospace',
   },
 });
 
@@ -95,55 +90,55 @@ const vars = {
   color: {
     ...baseVars.color,
     primary: {
-      background: baseVars.color.blue400,
-      fillPrimary: baseVars.color.neutral.white,
-      fillSecondary: baseVars.color.neutral.lightAlpha500,
-      elevated: baseVars.color.neutral.lightAlpha050,
+      background: baseVars.color.terminal.accent,
+      fillPrimary: baseVars.color.terminal.background,
+      fillSecondary: baseVars.color.terminal.surface,
+      elevated: baseVars.color.terminal.selection,
     } satisfies Surface,
     secondary: {
-      background: baseVars.color.neutral.black,
-      fillPrimary: baseVars.color.neutral.white,
-      fillSecondary: baseVars.color.neutral.lightAlpha300,
-      attention: baseVars.color.blue500,
-      elevated: baseVars.color.neutral.lightAlpha100,
+      background: baseVars.color.terminal.surface,
+      fillPrimary: baseVars.color.terminal.foreground,
+      fillSecondary: baseVars.color.terminal.foregroundMuted,
+      attention: baseVars.color.terminal.accentBright,
+      elevated: baseVars.color.terminal.surfaceHover,
     } satisfies Surface,
     solidPrimary: {
-      background: baseVars.color.blue100,
-      fillPrimary: baseVars.color.neutral.white,
-      fillSecondary: baseVars.color.neutral.lightAlpha300,
+      background: baseVars.color.terminal.background,
+      fillPrimary: baseVars.color.terminal.foreground,
+      fillSecondary: baseVars.color.terminal.foregroundMuted,
     } satisfies Surface,
     solidSecondary: {
-      background: baseVars.color.blue200,
-      fillPrimary: baseVars.color.neutral.white,
-      fillSecondary: baseVars.color.neutral.lightAlpha500,
-      attention: baseVars.color.blue400,
+      background: baseVars.color.terminal.surfaceRaised,
+      fillPrimary: baseVars.color.terminal.foreground,
+      fillSecondary: baseVars.color.terminal.foregroundMuted,
+      attention: baseVars.color.terminal.accentBright,
     } satisfies Surface,
     glassPrimary: {
-      background: baseVars.color.neutral.darkAlpha500,
-      fillPrimary: baseVars.color.neutral.white,
-      fillSecondary: baseVars.color.neutral.lightAlpha500,
-      fillTertiary: baseVars.color.neutral.lightAlpha100,
-      attention: baseVars.color.blue400,
+      background: baseVars.color.terminal.surface,
+      fillPrimary: baseVars.color.terminal.foreground,
+      fillSecondary: baseVars.color.terminal.foregroundMuted,
+      fillTertiary: baseVars.color.terminal.border,
+      attention: baseVars.color.terminal.accent,
     } satisfies Surface,
     glassSecondary: {
-      background: baseVars.color.neutral.darkAlpha200,
-      fillPrimary: baseVars.color.neutral.white,
-      fillSecondary: baseVars.color.neutral.lightAlpha500,
-      fillTertiary: baseVars.color.neutral.lightAlpha100,
-      attention: baseVars.color.blue400,
+      background: baseVars.color.terminal.background,
+      fillPrimary: baseVars.color.terminal.foreground,
+      fillSecondary: baseVars.color.terminal.foregroundMuted,
+      fillTertiary: baseVars.color.terminal.border,
+      attention: baseVars.color.terminal.accentBright,
     } satisfies Surface,
     overlay: {
-      background: baseVars.color.neutral.lightAlpha050,
-      fillPrimary: baseVars.color.neutral.white,
-      fillSecondary: baseVars.color.neutral.lightAlpha300,
+      background: baseVars.color.terminal.surfaceHover,
+      fillPrimary: baseVars.color.terminal.foregroundBright,
+      fillSecondary: baseVars.color.terminal.foregroundMuted,
     } satisfies Surface,
   },
 };
 
-const themeRoot = style([
-  themeClass,
-  { fontFamily: vars.font.ui },
-]);
-
+const themeRoot = style([themeClass, {
+  fontFamily: vars.font.ui,
+  color: vars.color.terminal.foreground,
+  colorScheme: 'dark',
+}]);
 
 export { themeRoot, vars };
