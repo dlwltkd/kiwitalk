@@ -9,7 +9,7 @@ export const container = style({
   flexDirection: 'column',
   justifyContent: 'flex-start',
   alignItems: 'stretch',
-  gap: '12px',
+  gap: '6px',
 });
 
 const fadeMask = `linear-gradient(180deg,
@@ -25,7 +25,7 @@ export const content = style({
   textOverflow: 'ellipsis',
   wordBreak: 'break-word',
 
-  color: vars.color.primary.fillPrimary,
+  color: vars.color.terminal.foreground,
 
   mask: fadeMask,
   WebkitMask: fadeMask,
@@ -34,9 +34,10 @@ export const content = style({
 export const button = style({
   width: '100%',
 
-  padding: '12px',
+  padding: '5px',
+  color: vars.color.terminal.accentBright,
   textAlign: 'center',
-  borderTop: `1px solid ${vars.color.primary.elevated}`,
+  borderTop: `1px solid ${vars.color.terminal.border}`,
   borderRadius: ` 0px 0px ${vars.radius.small} ${vars.radius.small} !important`,
 
   selectors: {
