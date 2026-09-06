@@ -1,4 +1,4 @@
-import { ResponseType, getClient } from '@tauri-apps/api/http';
+import { fetch } from '@tauri-apps/plugin-http';
 import { JSX, Owner, runWithOwner } from 'solid-js';
 import { Channel, ChannelUser, Chatlog } from '@/api/client';
 
@@ -112,12 +112,12 @@ export class ChatFactory {
     if (typeof url !== 'string') return <UnknownMessage type={chat.chatType} />;
 
     if (chat.chatType === 20 || chat.chatType === 6 || chat.chatType === 25) {
-      const client = await getClient();
-      const response = await client.get<number[]>(url, {
-        responseType: ResponseType.Binary,
-      });
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Failed to download emoticon: ${response.status}`);
+      }
 
-      const data = new Uint8Array(response.data);
+      const data = new Uint8Array(await response.arrayBuffer());
       for (let i = 0; i < 128; i++) {
         data[i] ^= EMOTICON_DECODE_ARRAY[i % EMOTICON_DECODE_ARRAY.length];
       }
