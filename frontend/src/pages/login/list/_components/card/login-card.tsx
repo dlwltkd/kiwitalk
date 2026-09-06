@@ -1,24 +1,22 @@
-import { Profile } from '@/pages/main/_components/profile';
 import * as styles from './login-card.css';
 
 export type LoginCardProps = {
-  profile?: string;
-  name?: string;
-  email?: string;
+  selected?: boolean;
   onClick?: () => void;
 };
-export const LoginCard = (props: LoginCardProps) => {
-  return (
-    <button type='button' class={styles.container} onClick={props.onClick}>
-      <Profile src={props.profile} />
-      <div class={styles.textContainer}>
-        <span class={styles.name}>
-          {props.name}
-        </span>
-        <span class={styles.email}>
-          {props.email}
-        </span>
-      </div>
-    </button>
-  );
-};
+
+export const LoginCard = (props: LoginCardProps) => (
+  <button
+    aria-pressed={props.selected ?? false}
+    class={styles.container[props.selected ? 'selected' : 'idle']}
+    type="button"
+    onClick={props.onClick}
+  >
+    <span class={styles.index}>01</span>
+    <span class={styles.textContainer}>
+      <span class={styles.name}>saved account</span>
+      <span class={styles.email}>local profile available // identity hidden</span>
+    </span>
+    <span class={styles.state}>{props.selected ? '[selected]' : '[enter]'}</span>
+  </button>
+);
