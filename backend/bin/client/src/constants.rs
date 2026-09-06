@@ -1,9 +1,6 @@
 use headless_talk::init::config::NetworkType;
 
-pub const TALK_OS: &str = "win32";
-pub const TALK_MCCMNC: &str = "999";
 pub const TALK_NET_TYPE: NetworkType = NetworkType::Wired;
-pub const TALK_APP_VERSION: &str = "3.4.7";
-pub const TALK_USE_SUB: bool = true;
 
-pub const CHECKIN_SERVER: (&str, u16) = ("ticket-loco.kakao.com", 443);
+pub const BOOKING_HOST: &str = "booking-loco.kakao.com";
+pub const BOOKING_SERVER: (&str, u16) = (BOOKING_HOST, 443);
