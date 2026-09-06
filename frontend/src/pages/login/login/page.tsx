@@ -21,7 +21,7 @@ export const LoginContentPage = () => {
   let passwordInput: HTMLInputElement | null = null;
 
   const [error, setError] = createSignal<string | null>(null);
-  const [forced, setForced] = createSignal(false);
+  const [submitting, setSubmitting] = createSignal(false);
 
   createEffect((prevTimeout: number | undefined) => {
     if (typeof error() === 'string') {
@@ -43,32 +43,41 @@ export const LoginContentPage = () => {
       return;
     }
 
-    const result = await loginWithResult({
+    if (submitting()) return;
+    setSubmitting(true);
+    const form = {
       email: loginInput.value,
       password: passwordInput.value,
       saveEmail: true, // input.saveId,
       autoLogin: false, // input.autoLogin,
-    }, forced());
+    };
+    passwordInput.value = '';
+    try {
+      const result = await loginWithResult(form);
 
-    if (result.type === 'Success') {
-      refreshLoginState();
-      navigate('/');
-    } else if (result.type === 'NeedRegister') {
-      navigate('../device-register', {
-        state: {
-          email: loginInput.value,
-          password: passwordInput.value,
-        },
-      });
-    } else {
-      if (result.forced) setForced(true);
-
-      setError(t(result.key, { detail: result.detail }));
+      if (result.type === 'Success') {
+        refreshLoginState();
+        navigate('/');
+      } else if (result.type === 'NeedRegister') {
+        navigate('../device-register', {
+          state: { challenge: result.challenge },
+        });
+      } else {
+        setError(t(result.key));
+        setSubmitting(false);
+      }
+    } catch {
+      setError(t('login.reason.auto_login_failed.general'));
+      setSubmitting(false);
     }
   };
 
   return (
     <form class={styles.loginForm} onSubmit={onLogin}>
+      <div class={styles.heading}>
+        <span class={styles.command}>$ auth --account</span>
+        <span class={styles.caption}>credentials remain in the native process</span>
+      </div>
       <ErrorTip message={error()} />
       <Input
         ref={(element) => loginInput = element}
@@ -81,8 +90,8 @@ export const LoginContentPage = () => {
         icon={<IconKey />}
         placeholder={t('login.password_placeholder')}
       />
-      <Button>
-        {t('login.login')}
+      <Button disabled={submitting()}>
+        {submitting() ? 'authenticating...' : t('login.login')}
       </Button>
     </form>
   );
