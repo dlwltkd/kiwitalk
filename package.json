@@ -1,7 +1,7 @@
 {
   "name": "kiwi-talk",
   "private": true,
-  "description": "Open kiwi talk",
+  "description": "A revival fork of KiwiTalk for native Linux",
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
@@ -16,14 +16,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/KiwiTalk/kiwitalk.git"
+    "url": "git+https://github.com/dlwltkd/kiwitalk.git"
   },
   "author": "KiwiTalk contributors",
   "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/KiwiTalk/kiwitalk/issues"
+    "url": "https://github.com/dlwltkd/kiwitalk/issues"
   },
-  "homepage": "https://github.com/KiwiTalk/kiwitalk",
+  "homepage": "https://github.com/dlwltkd/kiwitalk",
   "devDependencies": {
     "@storybook/addon-essentials": "7.6.20",
     "@storybook/types": "7.6.20",
