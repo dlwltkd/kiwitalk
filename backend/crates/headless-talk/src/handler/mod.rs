@@ -1,7 +1,11 @@
 pub mod error;
 
-use diesel::{dsl::exists, BoolExpressionMethods, ExpressionMethods, QueryDsl, RunQueryDsl};
+use diesel::{
+    dsl::exists, BoolExpressionMethods, ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl,
+};
 use futures_loco_protocol::loco_protocol::command::BoxedCommand;
+use futures_loco_protocol::loco_protocol::command::Header;
+use talk_loco_client::talk::session::TalkSession;
 use talk_loco_client::talk::stream::{
     command::{ChgMeta, DecunRead, DelMem, Kickout, Left, Msg, NewMem, SyncDlMsg, SyncJoin},
     StreamCommand,
@@ -32,10 +36,15 @@ impl SessionHandler {
     }
 
     pub async fn handle(&self, read: BoxedCommand) -> HandlerResult {
-        match StreamCommand::deserialize_from(read)? {
+        let header = read.header.clone();
+        let method = (*header.method).to_owned();
+
+        match StreamCommand::deserialize_from(read)
+            .map_err(|source| HandlerError::Deserialize { method, source })?
+        {
             StreamCommand::Kickout(kickout) => self.on_kickout(kickout).await,
             StreamCommand::SwitchServer => self.on_switch_server().await,
-            StreamCommand::Chat(msg) => self.on_chat(msg).await,
+            StreamCommand::Chat(msg) => self.on_chat(header, msg).await,
             StreamCommand::ChatRead(read) => self.on_chat_read(read).await,
             StreamCommand::ChangeMeta(meta) => self.on_meta_change(meta).await,
             StreamCommand::SyncChatDeletion(deletion) => self.on_chat_deleted(deletion).await,
@@ -56,33 +65,89 @@ impl SessionHandler {
         Ok(Some(ClientEvent::SwitchServer))
     }
 
-    async fn on_chat(&self, msg: Msg) -> HandlerResult {
-        let exists = self
+    async fn on_chat(&self, header: Header, msg: Msg) -> HandlerResult {
+        let is_mine = msg.chatlog.author_id == self.conn.user_id;
+        let noti_read = self.conn.is_channel_active(msg.chat_id) && !is_mine;
+        let (exists, push_alert) = self
             .conn
             .pool
             .spawn({
                 let row = ChatRow::from_chatlog(msg.chatlog.clone(), None);
 
                 move |conn| {
-                    let channel_exists = diesel::select(exists(
-                        channel_list::table.filter(channel_list::id.eq(row.channel_id)),
-                    ))
-                    .get_result::<bool>(conn)?;
+                    let channel_state = channel_list::table
+                        .filter(channel_list::id.eq(row.channel_id))
+                        .select((
+                            channel_list::push_alert,
+                            channel_list::last_seen_log_id,
+                            channel_list::last_update,
+                            channel_list::last_log_id,
+                        ))
+                        .first::<(bool, Option<i64>, i64, i64)>(conn)
+                        .optional()?;
+                    let channel_exists = channel_state.is_some();
+                    let chat_exists =
+                        diesel::select(exists(chat::table.filter(chat::log_id.eq(row.log_id))))
+                            .get_result::<bool>(conn)?;
 
                     diesel::replace_into(chat::table)
-                        .values(row)
+                        .values(&row)
                         .execute(conn)?;
 
-                    Ok(channel_exists)
+                    if let Some((_, last_seen_log_id, last_update, last_log_id)) = channel_state {
+                        if is_mine || noti_read {
+                            diesel::update(
+                                channel_list::table.filter(channel_list::id.eq(row.channel_id)),
+                            )
+                            .set((
+                                channel_list::unread_count.eq(0),
+                                channel_list::last_seen_log_id
+                                    .eq(Some(last_seen_log_id.unwrap_or_default().max(row.log_id))),
+                                channel_list::last_update.eq(last_update.max(row.send_at)),
+                                channel_list::last_log_id.eq(last_log_id.max(row.log_id)),
+                            ))
+                            .execute(conn)?;
+                        } else if !chat_exists {
+                            diesel::update(
+                                channel_list::table.filter(channel_list::id.eq(row.channel_id)),
+                            )
+                            .set((
+                                channel_list::unread_count.eq(channel_list::unread_count + 1),
+                                channel_list::last_update.eq(last_update.max(row.send_at)),
+                                channel_list::last_log_id.eq(last_log_id.max(row.log_id)),
+                            ))
+                            .execute(conn)?;
+                        } else {
+                            diesel::update(
+                                channel_list::table.filter(channel_list::id.eq(row.channel_id)),
+                            )
+                            .set((
+                                channel_list::last_update.eq(last_update.max(row.send_at)),
+                                channel_list::last_log_id.eq(last_log_id.max(row.log_id)),
+                            ))
+                            .execute(conn)?;
+                        }
+                    }
+
+                    Ok((
+                        channel_exists,
+                        channel_state
+                            .map(|(push_alert, _, _, _)| push_alert)
+                            .unwrap_or(true),
+                    ))
                 }
             })
             .await?;
 
-        if !exists && msg.link_id.is_none() {
+        if !exists {
             let _ = ChannelUpdater::new(msg.chat_id)
                 .initialize(&self.conn.session, &self.conn.pool)
                 .await;
         }
+
+        TalkSession(&self.conn.session)
+            .acknowledge_message(header, noti_read)
+            .await?;
 
         Ok(Some(ClientEvent::Channel {
             id: msg.chat_id,
@@ -92,6 +157,8 @@ impl SessionHandler {
 
                 user_nickname: msg.author_nickname,
                 chat: msg.chatlog,
+                read: is_mine || noti_read,
+                notify: !is_mine && !noti_read && push_alert,
             },
         }))
     }

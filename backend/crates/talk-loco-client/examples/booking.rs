@@ -27,9 +27,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let booking_res = client
         .get_conf(&GetConfReq {
-            os: "win32",
             mccmnc: "999",
-            model: "",
+            os: "win32",
+            user_id: 0,
         })
         .await;
 

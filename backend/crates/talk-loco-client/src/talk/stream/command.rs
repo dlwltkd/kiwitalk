@@ -1,6 +1,9 @@
 use serde::Deserialize;
 
-use crate::talk::{channel::ChannelMeta, chat::Chatlog, session::channel::info::ChannelInfo};
+use crate::talk::{
+    channel::ChannelMeta, chat::Chatlog, openlink::OpenLinkUser,
+    session::channel::info::ChannelInfo,
+};
 
 /// Send before server disconnect connection
 #[derive(Debug, Clone, Deserialize, PartialEq)]
@@ -30,7 +33,7 @@ pub struct Msg {
     /// false If sender sent message without reading.
     ///
     /// If it's false, sent message doesn't decrease read count of last chat.
-    #[serde(rename = "noSeen")]
+    #[serde(default, rename = "noSeen")]
     pub no_seen: bool,
 
     #[serde(rename = "li")]
@@ -126,13 +129,16 @@ pub struct SyncMemT {
 /// Sync openchat user profile
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 pub struct SyncLinkPf {
-    /// Chatroom id
-    #[serde(rename = "c")]
-    pub chat_id: i64,
+    #[serde(rename = "olu")]
+    pub open_link_user: OpenLinkUser,
 
     /// Chatroom Openlink id
     #[serde(rename = "li")]
     pub link_id: i64,
+
+    /// Present when the profile update belongs to a chatroom.
+    #[serde(default, rename = "c")]
+    pub chat_id: Option<i64>,
 }
 
 /// Sync openchat chat hide

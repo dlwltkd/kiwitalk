@@ -1,0 +1,2 @@
+ALTER TABLE channel_list
+ADD COLUMN push_alert BOOLEAN NOT NULL DEFAULT TRUE;

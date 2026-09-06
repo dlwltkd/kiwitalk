@@ -25,6 +25,8 @@ export type MessageListProps = {
   loading?: boolean;
   error?: string | null;
   onLoadMore?: () => void;
+  canSyncHistory?: boolean;
+  onSyncMore?: () => void;
 };
 
 export const MessageList = (props: MessageListProps) => {
@@ -46,19 +48,30 @@ export const MessageList = (props: MessageListProps) => {
 
   return (
     <div class={styles.container}>
-      <Show when={props.error}>
-        <div class={styles.notice.error}>! {props.error}</div>
-      </Show>
-      <Show when={props.loading}>
-        <div class={styles.notice.loading}>… loading transcript</div>
-      </Show>
-      <Show when={props.isEnd && props.messageGroups.length > 0}>
-        <div class={styles.notice.end}>— beginning of local history —</div>
-      </Show>
+      <div class={styles.historyBar} aria-live="polite">
+        <Show when={props.loading} fallback={
+          <>
+            <Show when={props.error} fallback={
+              <Show when={props.isEnd && props.messageGroups.length > 0}>
+                <span>All available messages are shown.</span>
+              </Show>
+            }>
+              <span class={styles.historyWarning}>{props.error}</span>
+            </Show>
+            <Show when={!props.isEnd && props.onLoadMore}>
+              <button type="button" class={styles.historyButton} onClick={props.onLoadMore}>Load earlier messages</button>
+            </Show>
+            <Show when={props.canSyncHistory && props.onSyncMore}>
+              <button type="button" class={styles.historyButton} onClick={props.onSyncMore}>Load more history / retry</button>
+            </Show>
+          </>
+        }>
+          <span>Loading messages…</span>
+        </Show>
+      </div>
       <Show when={!props.loading && !props.error && props.messageGroups.length === 0}>
         <div class={styles.empty}>
-          <span class={styles.emptyCommand}>$ history --local</span>
-          <span>no messages are stored for this channel yet</span>
+          <span>No messages are available in this room yet.</span>
         </div>
       </Show>
 

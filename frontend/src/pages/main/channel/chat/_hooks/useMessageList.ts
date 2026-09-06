@@ -15,6 +15,8 @@ import {
 } from '@/api/client';
 import { useChannelEvent, useReady } from '@/pages/main/_hooks';
 
+const PAGE_SIZE = 200;
+
 const groupMessages = (messages: Chatlog[]) => messages.reduce<Chatlog[][]>((groups, message) => {
   const group = groups.at(-1);
   if (group?.at(-1)?.senderId === message.senderId) group.push(message);
@@ -27,13 +29,13 @@ const syncWarning = (result: HistorySyncResult) => {
   if (result.complete) return null;
 
   if (result.stopReason === 'pageLimit' || result.stopReason === 'timeLimit') {
-    return 'history sync paused at its safety limit; reopen this chat to continue';
+    return 'More messages remain. Continue loading history.';
   }
   if (result.stopReason === 'unsupportedChannel') {
-    return 'history sync is not available for this room type yet';
+    return 'History is not available for this room type yet.';
   }
 
-  return 'remote history synchronization stalled; showing cached messages';
+  return 'Some earlier messages were not returned. Showing available history.';
 };
 
 export const useMessageList = (channelId: Accessor<string | null>) => {
@@ -43,20 +45,17 @@ export const useMessageList = (channelId: Accessor<string | null>) => {
   const [isEnd, setIsEnd] = createSignal(false);
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
+  const [historyNotice, setHistoryNotice] = createSignal<string | null>(null);
+  const [canSyncHistory, setCanSyncHistory] = createSignal(false);
+  const [hasNextSyncPage, setHasNextSyncPage] = createSignal(false);
   const [loadVersion, setLoadVersion] = createSignal(0);
   let activeChannelId: string | null = null;
   let generation = 0;
   let initialHistorySyncPending = false;
   let reloadLatestPending = false;
+  let paginationCursor: string | undefined;
 
   const messageGroups = createMemo(() => groupMessages(messages()));
-
-  const mergeMessages = (current: Chatlog[], incoming: Chatlog[], position: 'start' | 'end') => {
-    const known = new Set(current.map((message) => message.logId));
-    const unique = incoming.filter((message) => !known.has(message.logId));
-
-    return position === 'start' ? [...unique, ...current] : [...current, ...unique];
-  };
 
   const mergeLatestMessages = (current: Chatlog[], incoming: Chatlog[]) => {
     const byLogId = new Map(current.map((message) => [message.logId, message]));
@@ -71,8 +70,23 @@ export const useMessageList = (channelId: Accessor<string | null>) => {
   };
 
   const loadMore = () => {
-    if (!isReady() || !activeChannelId || loading() || isEnd()) return;
+    if (!isReady() || !activeChannelId || loading()) return;
+    if (isEnd()) {
+      if (!hasNextSyncPage()) return;
+      initialHistorySyncPending = true;
+      reloadLatestPending = true;
+      setHasNextSyncPage(false);
+      setIsEnd(false);
+    }
     setLoadVersion((version) => version + 1);
+  };
+
+  const syncMore = () => {
+    if (!isReady() || !activeChannelId || loading()) return;
+    initialHistorySyncPending = true;
+    reloadLatestPending = true;
+    setIsEnd(false);
+    queueMicrotask(loadMore);
   };
 
   createEffect(() => {
@@ -83,10 +97,14 @@ export const useMessageList = (channelId: Accessor<string | null>) => {
     generation += 1;
     initialHistorySyncPending = Boolean(id);
     reloadLatestPending = false;
+    paginationCursor = undefined;
     setMessages([]);
     setIsEnd(false);
     setLoading(false);
     setError(null);
+    setHistoryNotice(null);
+    setCanSyncHistory(false);
+    setHasNextSyncPage(false);
 
     if (id && isReady()) queueMicrotask(loadMore);
   });
@@ -108,41 +126,49 @@ export const useMessageList = (channelId: Accessor<string | null>) => {
 
     const requestGeneration = ++generation;
     const shouldReloadLatest = reloadLatestPending;
-    const oldestLogId = shouldReloadLatest ? undefined : messages().at(-1)?.logId;
+    const oldestLogId = shouldReloadLatest ? undefined : paginationCursor;
     const shouldSyncHistory = initialHistorySyncPending;
     setLoading(true);
     setError(null);
 
     try {
+      const loaded = await loadChat(id, PAGE_SIZE, oldestLogId, true);
+      if (requestGeneration !== generation || id !== activeChannelId) return;
+
+      setMessages((current) => mergeLatestMessages(current, loaded));
+      paginationCursor = loaded.at(-1)?.logId ?? (shouldReloadLatest ? undefined : paginationCursor);
+      reloadLatestPending = false;
+      setIsEnd(loaded.length < PAGE_SIZE);
+
       let syncFailed = false;
-      let syncNotice: string | null = null;
       if (shouldSyncHistory) {
+        initialHistorySyncPending = false;
+        let result: HistorySyncResult | undefined;
         try {
-          syncNotice = syncWarning(await syncChannelHistory(id));
+          result = await syncChannelHistory(id);
         } catch {
           syncFailed = true;
         }
 
         if (requestGeneration !== generation || id !== activeChannelId) return;
-        initialHistorySyncPending = false;
+        setHistoryNotice(result ? syncWarning(result) : 'History could not be loaded. You can retry.');
+        setCanSyncHistory(syncFailed || Boolean(result && !result.complete && result.stopReason !== 'unsupportedChannel'));
+        setHasNextSyncPage(Boolean(result && result.fetchedCount > 0 && (
+          result.stopReason === 'pageLimit' || result.stopReason === 'timeLimit'
+        )));
+
+        const refreshed = await loadChat(id, PAGE_SIZE, undefined, true);
+        if (requestGeneration !== generation || id !== activeChannelId) return;
+
+        setMessages((current) => mergeLatestMessages(current, refreshed));
+        paginationCursor = refreshed.at(-1)?.logId;
+        setIsEnd(refreshed.length < PAGE_SIZE);
       }
-
-      const loaded = await loadChat(id, 200, oldestLogId, true);
-      if (requestGeneration !== generation || id !== activeChannelId) return;
-
-      if (shouldReloadLatest) {
-        setMessages((current) => mergeLatestMessages(current, loaded));
-        reloadLatestPending = false;
-      } else if (loaded.length === 0) {
-        setIsEnd(true);
-      } else {
-        setMessages((current) => mergeMessages(current, loaded, 'end'));
-      }
-
-      if (syncFailed) setError('remote history could not be synchronized; showing local transcript');
-      else if (syncNotice) setError(syncNotice);
     } catch {
-      if (requestGeneration === generation) setError('local transcript could not be loaded');
+      if (requestGeneration === generation) {
+        setError('Messages could not be loaded. You can retry.');
+        setCanSyncHistory(true);
+      }
     } finally {
       if (requestGeneration === generation) setLoading(false);
     }
@@ -152,7 +178,7 @@ export const useMessageList = (channelId: Accessor<string | null>) => {
     if (!incoming || incoming.channelId !== activeChannelId) return;
 
     if (incoming.type === 'Chat') {
-      setMessages((current) => mergeMessages(current, [incoming.content], 'start'));
+      setMessages((current) => mergeLatestMessages(current, [incoming.content.chat]));
     } else if (incoming.type === 'ChatDeleted') {
       setMessages((current) => current.filter((message) => message.logId !== incoming.content.logId));
     }
@@ -168,8 +194,10 @@ export const useMessageList = (channelId: Accessor<string | null>) => {
   return {
     messageGroups,
     loadMore,
-    isEnd,
+    syncMore,
+    canSyncHistory,
+    isEnd: () => isEnd() && !hasNextSyncPage(),
     loading,
-    error,
+    error: () => error() ?? historyNotice(),
   };
 };

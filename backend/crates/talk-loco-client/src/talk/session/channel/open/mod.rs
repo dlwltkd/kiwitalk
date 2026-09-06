@@ -6,7 +6,7 @@ use crate::{request, RequestResult};
 
 use self::user::User;
 
-use super::TalkChannel;
+use super::{leave, TalkChannel};
 
 #[derive(Debug, Clone, Copy)]
 pub struct TalkOpenChannel<'a> {
@@ -19,26 +19,21 @@ impl<'a> TalkOpenChannel<'a> {
         Self { inner, link_id }
     }
 
-    pub async fn noti_read(self, watermark: i64) -> RequestResult<()> {
-        request!(self.inner.session, "NOTIREAD", bson {
-            "chatId": self.inner.id,
-            "watermark": watermark,
-            "linkId": self.link_id,
-        })
-        .await
-    }
-
     pub async fn list_users(self) -> RequestResult<Vec<User>> {
         #[derive(Deserialize)]
         struct Response {
+            #[serde(default)]
             pub members: Vec<User>,
+
+            #[serde(rename = "token")]
+            pub _token: i64,
         }
 
-        Ok(request!(self.inner.session, "GETMEM", bson {
+        let response = request!(self.inner.session, "GETMEM", bson {
             "chatId": self.inner.id,
         }, Response)
-        .await?
-        .members)
+        .await?;
+        Ok(response.members)
     }
 
     pub async fn users(self, user_ids: &[i64]) -> RequestResult<Vec<User>> {
@@ -53,10 +48,14 @@ impl<'a> TalkOpenChannel<'a> {
 
         #[derive(Deserialize)]
         struct Response {
+            #[serde(rename = "chatId")]
+            pub _chat_id: i64,
+
+            #[serde(default)]
             pub members: Vec<User>,
         }
 
-        Ok(request!(
+        let response = request!(
             self.inner.session,
             "MEMBER",
             &Request {
@@ -65,16 +64,19 @@ impl<'a> TalkOpenChannel<'a> {
             },
             Response
         )
-        .await?
-        .members)
+        .await?;
+        Ok(response.members)
     }
 
-    pub async fn leave(self, block: bool) -> RequestResult<()> {
-        request!(self.inner.session, "LEAVE", bson {
-            "chatId": self.inner.id,
-            "block": block,
-            "li": self.link_id,
-        })
-        .await
+    pub async fn leave(self, block: bool, from: &str) -> RequestResult<leave::Response> {
+        self.inner
+            .leave(&leave::Request {
+                block,
+                from,
+                report: false,
+                link_id: None,
+                silence: false,
+            })
+            .await
     }
 }

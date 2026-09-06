@@ -29,7 +29,7 @@ const CHECKIN_TIMEOUT: Duration = Duration::from_secs(20);
 const LEGACY_LSL_ENCRYPT_TYPE: i32 = 2;
 
 pub async fn checkin(user_id: i64, profile: ProtocolProfile) -> anyhow::Result<CheckinRes> {
-    let (host, port) = discover_legacy_lsl_endpoint(profile)
+    let (host, port) = discover_legacy_lsl_endpoint(user_id, profile)
         .await
         .context("failed to discover a legacy LSL ticket endpoint")?;
 
@@ -50,9 +50,7 @@ pub async fn checkin(user_id: i64, profile: ProtocolProfile) -> anyhow::Result<C
             net_type: TALK_NET_TYPE as _,
             mccmnc: profile.mccmnc(),
             language: profile.language(),
-            country_iso: profile.country_iso(),
             use_sub: profile.use_sub(),
-            device_name: Some(profile.model()),
         }),
     )
     .await
@@ -60,7 +58,10 @@ pub async fn checkin(user_id: i64, profile: ProtocolProfile) -> anyhow::Result<C
     .context("CHECKIN request to legacy LSL ticket endpoint failed")
 }
 
-async fn discover_legacy_lsl_endpoint(profile: ProtocolProfile) -> anyhow::Result<(String, u16)> {
+async fn discover_legacy_lsl_endpoint(
+    user_id: i64,
+    profile: ProtocolProfile,
+) -> anyhow::Result<(String, u16)> {
     let tcp_stream = timeout(CONNECT_TIMEOUT, TcpStream::connect(BOOKING_SERVER))
         .await
         .context("booking TCP connection timed out")?
@@ -84,9 +85,9 @@ async fn discover_legacy_lsl_endpoint(profile: ProtocolProfile) -> anyhow::Resul
     let config = timeout(
         GET_CONF_TIMEOUT,
         client.get_conf(&GetConfReq {
-            os: profile.os(),
             mccmnc: profile.mccmnc(),
-            model: profile.model(),
+            os: profile.os(),
+            user_id,
         }),
     )
     .await

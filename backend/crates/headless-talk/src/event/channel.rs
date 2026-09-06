@@ -7,6 +7,12 @@ pub enum ChannelEvent {
 
         user_nickname: Option<String>,
         chat: Chatlog,
+
+        /// Whether this client acknowledged the message as already read.
+        read: bool,
+
+        /// Whether the desktop shell should show a system notification.
+        notify: bool,
     },
 
     ChatRead {

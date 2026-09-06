@@ -10,7 +10,12 @@ use crate::{database::PoolTaskError, ClientError};
 pub enum HandlerError {
     Client(#[from] ClientError),
 
-    Deserialize(#[from] bson::de::Error),
+    #[error("cannot decode {method}: {source}")]
+    Deserialize {
+        method: String,
+        #[source]
+        source: bson::de::Error,
+    },
 
     Io(#[from] io::Error),
 }

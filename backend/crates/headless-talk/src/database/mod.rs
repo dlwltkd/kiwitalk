@@ -148,7 +148,7 @@ mod tests {
     }
 
     #[test]
-    fn existing_database_gets_an_empty_history_checkpoint_table() {
+    fn existing_database_gets_current_history_and_room_state() {
         const MIGRATIONS: EmbeddedMigrations = embed_migrations!("./migrations");
 
         let database = TestDatabase::new();
@@ -174,9 +174,19 @@ mod tests {
             .count()
             .get_result::<i64>(&mut conn)
             .unwrap();
+        let room_token = channel_list::table
+            .select(channel_list::room_token)
+            .first::<i64>(&mut conn)
+            .unwrap();
+        let last_log_id = channel_list::table
+            .select(channel_list::last_log_id)
+            .first::<i64>(&mut conn)
+            .unwrap();
 
         assert_eq!(channel_count, 1);
         assert_eq!(checkpoint_count, 0);
+        assert_eq!(room_token, 0);
+        assert_eq!(last_log_id, 0);
     }
 
     #[test]

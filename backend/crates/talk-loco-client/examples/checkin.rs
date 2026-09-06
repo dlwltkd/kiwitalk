@@ -57,9 +57,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             app_version: "4.2.0",
             mccmnc: "999",
             language: "ko",
-            country_iso: "ko",
             use_sub: true,
-            device_name: None,
         })
         .await;
 

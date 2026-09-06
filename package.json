@@ -9,6 +9,7 @@
     "frontend:dev": "vite",
     "frontend:build": "tsc -p tsconfig.app.json && vite build",
     "frontend:typecheck": "tsc -p tsconfig.app.json",
+    "frontend:test": "node --test tests/frontend/*.test.mjs",
     "frontend:preview": "vite preview",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",

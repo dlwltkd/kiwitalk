@@ -28,7 +28,7 @@
         "depends": []
       }
     },
-    "targets": "all"
+    "targets": ["deb", "rpm"]
   },
   "identifier": "org.kiwitalk.kiwitalk",
   "mainBinaryName": "KiwiTalk",

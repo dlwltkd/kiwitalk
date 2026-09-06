@@ -26,6 +26,32 @@ export type ChannelMeta = {
   content: string,
 };
 
+export type ArchiveEntry = {
+  date: string;
+  time: string | null;
+  sender: string | null;
+  senderId: string | null;
+  content: string;
+  sendAt: number | null;
+};
+
+export type ChatArchive = {
+  sourceName: string;
+  savedAt: string;
+  utcOffsetMinutes: number;
+  messageCount: number;
+  matchedCount: number;
+  entries: ArchiveEntry[];
+};
+
+export function loadChatArchive(id: string): Promise<ChatArchive | null> {
+  return invoke('plugin:client|channel_load_archive', { id });
+}
+
+export function importChatArchive(id: string, sourceName: string, text: string, utcOffsetMinutes: number): Promise<ChatArchive> {
+  return invoke('plugin:client|channel_import_archive', { id, sourceName, text, utcOffsetMinutes });
+}
+
 export type ChannelUser = {
   nickname: string;
 
@@ -44,6 +70,18 @@ export type NormalChannelUser = {
   linkedServices: string;
   suspended: boolean;
 } & ChannelUser;
+export type OpenChannelUser = {
+  userType: number;
+  accountId: string;
+  countryIso?: string;
+  serviceUserType?: number;
+  suspended: boolean;
+  suspicion: string;
+  openMemberType: number;
+  profileType: number;
+  profileLinkId: string;
+  openToken: number;
+} & ChannelUser;
 
 type NormalChannelKind = {
   kind: 'normal',
@@ -53,12 +91,21 @@ type NormalChannelKind = {
 }
 type OpenChannelKind = {
   kind: 'open',
+  content: {
+    users: [string, OpenChannelUser][],
+    metas: ChannelMeta[],
+    openToken: number,
+  }
 }
 
 export type Channel = NormalChannelKind | OpenChannelKind;
 
 export async function loadChannel(id: string): Promise<Channel> {
   return invoke('plugin:client|load_channel', { id });
+}
+
+export async function setChannelActive(id: string, active: boolean): Promise<void> {
+  await invoke('plugin:client|channel_set_active', { id, active });
 }
 
 export async function sendText(id: string, text: string): Promise<Chatlog> {
@@ -75,6 +122,7 @@ export type HistorySyncStopReason =
   | 'reachedTarget'
   | 'emptyBatch'
   | 'noProgress'
+  | 'historyGap'
   | 'pageLimit'
   | 'timeLimit'
   | 'unsupportedChannel';
@@ -82,6 +130,8 @@ export type HistorySyncStopReason =
 export type HistorySyncResult = {
   fetchedCount: number;
   pageCount: number;
+  cachedCount: number;
+  gapCount: number;
   complete: boolean;
   stopReason: HistorySyncStopReason;
 };

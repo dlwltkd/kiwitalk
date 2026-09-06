@@ -282,6 +282,7 @@ async fn run() -> Result<(), Box<dyn Error>> {
         },
         last_block_token: 0,
         background: profile.background(),
+        is_switching: profile.is_switching(),
     };
     let login_result = tokio::time::timeout(
         Duration::from_secs(45),
@@ -386,7 +387,7 @@ async fn run() -> Result<(), Box<dyn Error>> {
         .map_err(|error| sanitized_request_error("SYNCMSG failed", error))?;
         page_count += 1;
 
-        let chatlogs = history.chatlogs.unwrap_or_default();
+        let chatlogs = history.chatlogs;
         channel_consistent &= chatlogs
             .iter()
             .all(|chatlog| chatlog.channel_id == channel_id);
@@ -451,6 +452,7 @@ async fn run() -> Result<(), Box<dyn Error>> {
             include_pc_status: profile.include_pc_status(),
             background: profile.background(),
             last_chat_id: profile.last_chat_id(),
+            is_switching: profile.is_switching(),
             login_response_type: login::ResponseType::AndroidSubdevice,
         },
         database.url(),

@@ -13,6 +13,7 @@ pub struct ClientEnv<'a> {
     pub include_pc_status: bool,
     pub background: Option<bool>,
     pub last_chat_id: Option<i64>,
+    pub is_switching: Option<bool>,
     pub login_response_type: ResponseType,
 }
 

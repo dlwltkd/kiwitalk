@@ -21,13 +21,22 @@ export type KiwiTalkEvent = Kickout | SwitchServer | Channel;
 
 type Chat = {
   type: 'Chat',
-  content: Chatlog,
+  content: {
+    chat: Chatlog,
+    read: boolean,
+  },
 }
 type ChatRead = {
   type: 'ChatRead',
   content: {
     userId: string,
     logId: string,
+  },
+}
+type UnreadChanged = {
+  type: 'UnreadChanged',
+  content: {
+    unreadCount: number,
   },
 }
 type ChatDeleted = {
@@ -46,4 +55,4 @@ type Left = {
   type: 'Left'
 }
 
-export type KiwiTalkChannelEvent = Chat | ChatRead | ChatDeleted | MetaChanged | Added | Left;
+export type KiwiTalkChannelEvent = Chat | ChatRead | UnreadChanged | ChatDeleted | MetaChanged | Added | Left;

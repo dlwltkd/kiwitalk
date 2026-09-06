@@ -10,6 +10,16 @@ diesel::table! {
         unread_count -> Integer,
         last_seen_log_id -> Nullable<BigInt>,
         last_update -> BigInt,
+        room_token -> BigInt,
+        push_alert -> Bool,
+        last_log_id -> BigInt,
+    }
+}
+
+diesel::table! {
+    channel_chat_archive (channel_id) {
+        channel_id -> BigInt,
+        payload -> Text,
     }
 }
 
@@ -84,6 +94,7 @@ diesel::table! {
 
 diesel::allow_tables_to_appear_in_same_query!(
     channel_list,
+    channel_chat_archive,
     channel_history_sync,
     channel_meta,
     chat,

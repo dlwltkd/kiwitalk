@@ -12,25 +12,25 @@ pub struct ChannelInfo {
     #[serde(flatten)]
     pub channel_type: ChannelInfoType,
 
-    #[serde(rename = "activeMembersCount")]
+    #[serde(default, rename = "chatId")]
+    pub chat_id: i64,
+
+    #[serde(default, rename = "activeMembersCount")]
     pub active_member_count: i32,
 
-    #[serde(rename = "newMessageCount")]
+    #[serde(default, rename = "newMessageCount")]
     pub new_chat_count: i32,
 
-    #[serde(rename = "lastLogId")]
-    pub last_log_id: i64,
-
-    #[serde(rename = "lastSeenLogId")]
+    #[serde(default, rename = "lastSeenLogId")]
     pub last_seen_log_id: i64,
 
-    #[serde(rename = "lastChatLog")]
+    #[serde(default, rename = "lastChatLog")]
     pub last_chatlog: Option<Chatlog>,
 
-    #[serde(rename = "pushAlert")]
+    #[serde(default, rename = "pushAlert")]
     pub push_alert: bool,
 
-    #[serde(rename = "chatMetas")]
+    #[serde(default, rename = "chatMetas")]
     pub channel_metas: Vec<ChannelMeta>,
 }
 
@@ -68,29 +68,83 @@ impl ChannelInfoType {
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 pub struct NormalChannelInfo {
-    #[serde(rename = "inviterId")]
+    #[serde(default, rename = "inviterId")]
     pub inviter_id: Option<i64>,
 
-    #[serde(rename = "displayMembers")]
+    #[serde(default, rename = "displayMembers")]
     pub display_members: Vec<normal::user::DisplayUser>,
 
-    #[serde(rename = "joinedAtForNewMem")]
+    #[serde(default, rename = "joinedAtForNewMem")]
     pub joined_at_for_new_mem: i64,
-
-    pub left: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 pub struct OpenChannelInfo {
-    #[serde(rename = "displayMembers")]
+    #[serde(default, rename = "displayMembers")]
     pub display_members: Vec<open::user::DisplayUser>,
 
-    #[serde(rename = "li")]
+    #[serde(default, rename = "linkId", alias = "li")]
     pub link_id: i64,
 
-    #[serde(rename = "otk")]
+    #[serde(default, rename = "openLinkToken", alias = "otk")]
     pub open_token: i32,
 
-    #[serde(rename = "directChat")]
+    #[serde(default, rename = "directChat")]
     pub direct_chat: Option<bool>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn accepts_current_android_normal_chat_info() {
+        let info: ChannelInfo = bson::from_document(bson::doc! {
+            "chatId": 10_i64,
+            "type": "MultiChat",
+            "activeMembersCount": 2_i32,
+            "newMessageCount": 1_i32,
+            "inviterId": 3_i64,
+            "lastSeenLogId": 4_i64,
+            "displayMembers": [{
+                "userId": 5_i64,
+                "nickName": "member",
+                "profileImageUrl": bson::Bson::Null,
+            }],
+            "pushAlert": true,
+            "joinedAtForNewMem": 6_i32,
+            "chatMetas": [],
+            "linkId": 0_i64,
+            "openLinkToken": 0_i32,
+            "token": 7_i64,
+        })
+        .unwrap();
+
+        assert_eq!(info.chat_id, 10);
+        assert_eq!(info.last_seen_log_id, 4);
+        assert!(info.push_alert);
+        let ChannelInfoType::MultiChat(normal) = info.channel_type else {
+            panic!("expected a normal multi-chat room");
+        };
+        assert_eq!(normal.joined_at_for_new_mem, 6);
+        assert_eq!(normal.display_members.len(), 1);
+    }
+
+    #[test]
+    fn accepts_current_android_open_chat_info_keys() {
+        let info: ChannelInfo = bson::from_document(bson::doc! {
+            "chatId": 20_i64,
+            "type": "OM",
+            "displayMembers": [],
+            "linkId": 21_i64,
+            "openLinkToken": 22_i32,
+        })
+        .unwrap();
+
+        let ChannelInfoType::OpenMulti(open) = info.channel_type else {
+            panic!("expected an open multi-chat room");
+        };
+        assert_eq!(open.link_id, 21);
+        assert_eq!(open.open_token, 22);
+    }
 }

@@ -2064,6 +2064,7 @@ name = "headless-talk"
 version = "0.6.1"
 dependencies = [
  "bson",
+ "chrono",
  "diesel",
  "diesel_migrations",
  "extend",
@@ -2074,6 +2075,7 @@ dependencies = [
  "nohash-hasher",
  "once_cell",
  "r2d2",
+ "regex",
  "serde",
  "serde_json",
  "talk-loco-client",
@@ -5066,6 +5068,7 @@ dependencies = [
  "bson",
  "futures-lite 2.3.0",
  "futures-loco-protocol",
+ "log",
  "num-bigint-dig",
  "parking_lot",
  "pin-project-lite",

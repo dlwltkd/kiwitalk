@@ -2,7 +2,10 @@ pub mod config;
 
 use std::{collections::VecDeque, io, pin::pin};
 
-use diesel::{QueryDsl, RunQueryDsl};
+use diesel::{
+    ExpressionMethods, JoinOnDsl, NullableExpressionMethods, QueryDsl, RunQueryDsl,
+    SqliteConnection,
+};
 use futures::{AsyncRead, AsyncWrite, Future, TryStream, TryStreamExt};
 use futures_loco_protocol::{
     loco_protocol::command::BoxedCommand,
@@ -20,7 +23,10 @@ use tokio::time;
 use crate::{
     conn::Conn,
     constants::PING_INTERVAL,
-    database::{schema::channel_list, DatabasePool, MigrationError, PoolTaskError},
+    database::{
+        schema::{channel_history_sync, channel_list},
+        DatabasePool, MigrationError, PoolTaskError,
+    },
     event::ClientEvent,
     handler::{error::HandlerError, SessionHandler},
     task::BackgroundTask,
@@ -32,6 +38,21 @@ use self::config::ClientEnv;
 
 const LOGIN_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(45);
 const STREAM_COMMAND_BUFFER_LIMIT: usize = 256;
+
+fn load_sync_state(conn: &mut SqliteConnection) -> diesel::QueryResult<(Vec<i64>, Vec<i64>)> {
+    let rows = channel_list::table
+        .left_join(
+            channel_history_sync::table.on(channel_history_sync::channel_id.eq(channel_list::id)),
+        )
+        .select((channel_list::id, channel_history_sync::cursor.nullable()))
+        .order(channel_list::id.asc())
+        .load::<(i64, Option<i64>)>(conn)?;
+
+    Ok(rows
+        .into_iter()
+        .map(|(id, cursor)| (id, cursor.unwrap_or(0).max(0)))
+        .unzip())
+}
 
 pub struct TalkInitializer<'a, S> {
     session: LocoSession,
@@ -52,13 +73,11 @@ impl<'a, S: AsyncRead + AsyncWrite + Unpin> TalkInitializer<'a, S> {
 
         let pool = DatabasePool::initialize(database_url)
             .await
-            .map_err(|error| {
+            .inspect_err(|_| {
                 log::warn!("native chat startup failed; stage=database_pool");
-                error
             })?;
-        pool.migrate_to_latest().await.map_err(|error| {
+        pool.migrate_to_latest().await.inspect_err(|_| {
             log::warn!("native chat startup failed; stage=database_migration");
-            error
         })?;
 
         Ok(Self {
@@ -86,28 +105,18 @@ impl<'a, S: AsyncRead + AsyncWrite + Unpin> TalkInitializer<'a, S> {
 
         let (chat_ids, max_ids) = self
             .pool
-            .spawn(|conn| {
-                let iter = channel_list::table
-                    .select((channel_list::id, channel_list::last_seen_log_id))
-                    .load_iter::<(i64, Option<i64>), _>(conn)?;
-
-                let mut chat_ids = Vec::with_capacity(iter.size_hint().0);
-                let mut max_ids = Vec::with_capacity(iter.size_hint().0);
-
-                for res in iter {
-                    let (channel_id, max_id) = res?;
-
-                    chat_ids.push(channel_id);
-                    max_ids.push(max_id.unwrap_or(0));
-                }
-
-                Ok((chat_ids, max_ids))
-            })
+            .spawn(|conn| Ok(load_sync_state(conn)?))
             .await
             .map_err(|error| {
                 log::warn!("native chat startup failed; stage=channel_state_load");
                 ClientError::from(error)
             })?;
+
+        log::info!(
+            "local history state loaded; rooms={}; without_checkpoint={}",
+            chat_ids.len(),
+            max_ids.iter().filter(|&&cursor| cursor == 0).count(),
+        );
 
         let mut stream_buffer = VecDeque::new();
 
@@ -137,22 +146,31 @@ impl<'a, S: AsyncRead + AsyncWrite + Unpin> TalkInitializer<'a, S> {
                             },
                             last_block_token: 0,
                             background: self.env.background,
+                            is_switching: self.env.is_switching,
                         },
                         self.env.login_response_type,
                     )
                     .await?;
 
+                let user_id = res.user_id;
+                let mut removed_channels = res.chat_list.deleted_chat_ids;
+                removed_channels.extend(res.chat_list.kicked_chat_ids);
                 channel_list.push(res.chat_list.chat_datas);
 
                 if let Some(stream) = stream {
                     let mut stream = pin!(stream);
 
                     while let Some(res) = stream.try_next().await? {
+                        removed_channels.extend(res.deleted_chat_ids);
+                        removed_channels.extend(res.kicked_chat_ids);
                         channel_list.push(res.chat_datas);
                     }
                 }
 
-                Ok::<_, ClientError>((res.user_id, res.chat_list.deleted_chat_ids))
+                removed_channels.sort_unstable();
+                removed_channels.dedup();
+
+                Ok::<_, ClientError>((user_id, removed_channels))
             }),
         )
         .await
@@ -160,23 +178,17 @@ impl<'a, S: AsyncRead + AsyncWrite + Unpin> TalkInitializer<'a, S> {
             log::warn!("native chat startup failed; stage=loginlist_timeout");
             io::Error::new(io::ErrorKind::TimedOut, "LOGINLIST request timed out")
         })?;
-        let login_result = login_result.map_err(|error| {
+        let login_result = login_result.inspect_err(|error| {
             log::warn!(
                 "native chat startup failed; stage=loginlist_stream; io_kind={:?}",
                 error.kind()
             );
-            error
         })?;
-        let (user_id, deleted_channels) = login_result.map_err(|error| {
-            log_loginlist_request_error(&error);
-            error
+        let (user_id, deleted_channels) = login_result.inspect_err(|error| {
+            log_loginlist_request_error(error);
         })?;
 
-        let conn = Conn {
-            user_id,
-            session: self.session.clone(),
-            pool: self.pool.clone(),
-        };
+        let conn = Conn::with_inactive_channel(user_id, self.session.clone(), self.pool.clone());
 
         let stream_task = BackgroundTask::new(tokio::spawn({
             let handler = SessionHandler::new(conn.clone());
@@ -247,9 +259,8 @@ impl<'a, S: AsyncRead + AsyncWrite + Unpin> TalkInitializer<'a, S> {
                 self.env.login_response_type == login::ResponseType::Desktop,
             )
             .await
-            .map_err(|error| {
+            .inspect_err(|_| {
                 log::warn!("native chat startup failed; stage=channel_list_update");
-                error
             })?;
 
         Ok(HeadlessTalk {
@@ -400,10 +411,16 @@ async fn dispatch_handler_result<F, Fut>(
         }
         Ok(None) => {}
         Err(err) => {
-            log::warn!(
-                "ignored LOCO push after a {} handler failure",
-                handler_error_category(&err)
-            );
+            if let HandlerError::Deserialize { method, source } = &err {
+                log::warn!(
+                    "ignored LOCO push after a decode handler failure; method={method}; detail={source}"
+                );
+            } else {
+                log::warn!(
+                    "ignored LOCO push after a {} handler failure",
+                    handler_error_category(&err)
+                );
+            }
         }
     }
 }
@@ -412,7 +429,7 @@ const fn handler_error_category(error: &HandlerError) -> &'static str {
     match error {
         HandlerError::Client(ClientError::Request(_)) => "request",
         HandlerError::Client(ClientError::Database(_)) => "database",
-        HandlerError::Deserialize(_) => "decode",
+        HandlerError::Deserialize { .. } => "decode",
         HandlerError::Io(_) => "I/O",
     }
 }
@@ -436,8 +453,65 @@ mod tests {
     };
 
     use super::*;
+    use diesel::{connection::SimpleConnection, Connection};
     use futures::{stream, StreamExt};
     use futures_loco_protocol::loco_protocol::command::{Command, Header, Method};
+
+    fn sync_state_connection() -> SqliteConnection {
+        let mut conn = SqliteConnection::establish(":memory:").unwrap();
+        conn.batch_execute(include_str!(
+            "../../migrations/2023-10-21-003644_v0.1/up.sql"
+        ))
+        .unwrap();
+        conn.batch_execute(include_str!(
+            "../../migrations/2026-08-28-000000_history_sync_cursor/up.sql"
+        ))
+        .unwrap();
+        conn
+    }
+
+    #[test]
+    fn login_uses_history_progress_when_read_mark_and_preview_are_newer() {
+        let mut conn = sync_state_connection();
+        conn.batch_execute(
+            "INSERT INTO channel_list
+             (id, type, display_users, active_user_count, unread_count, last_seen_log_id, last_update)
+             VALUES (7, 'DirectChat', '[]', 2, 0, 100, 0);
+             INSERT INTO channel_history_sync (channel_id, cursor) VALUES (7, 20);
+             INSERT INTO chat (log_id, channel_id, type, message_id, send_at, author_id)
+             VALUES (20, 7, 1, 20, 0, 1), (100, 7, 1, 100, 0, 1);",
+        )
+        .unwrap();
+
+        assert_eq!(load_sync_state(&mut conn).unwrap(), (vec![7], vec![20]));
+        assert_eq!(
+            channel_list::table
+                .select(channel_list::last_seen_log_id)
+                .first::<Option<i64>>(&mut conn)
+                .unwrap(),
+            Some(100),
+        );
+    }
+
+    #[test]
+    fn login_keeps_room_and_cursor_pairs_with_missing_checkpoints() {
+        let mut conn = sync_state_connection();
+        conn.batch_execute(
+            "INSERT INTO channel_list
+             (id, type, display_users, active_user_count, unread_count, last_seen_log_id, last_update)
+             VALUES (9, 'DirectChat', '[]', 2, 0, 900, 0),
+                    (3, 'DirectChat', '[]', 2, 0, 300, 0),
+                    (5, 'DirectChat', '[]', 2, 0, 500, 0);
+             INSERT INTO channel_history_sync (channel_id, cursor)
+             VALUES (9, 90), (5, -1), (99, 990);",
+        )
+        .unwrap();
+
+        assert_eq!(
+            load_sync_state(&mut conn).unwrap(),
+            (vec![3, 5, 9], vec![0, 0, 90]),
+        );
+    }
 
     fn command(id: u32) -> BoxedCommand {
         Command {

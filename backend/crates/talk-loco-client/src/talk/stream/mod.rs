@@ -74,7 +74,7 @@ create_enum!(
 
         "SYNCLINKCR" => SyncLinkCreation(SyncLinkCr),
         "SYNCMEMT" => SyncOpenUserType(SyncMemT),
-        "SYNCLINKPR" => SyncLinkProfile(SyncLinkPf),
+        "SYNCLINKPF" => SyncLinkProfile(SyncLinkPf),
 
         "LEFT" => Left(Left),
 
@@ -82,3 +82,80 @@ create_enum!(
         "DELMEM" => DelUser(DelMem),
     }
 );
+
+#[cfg(test)]
+mod tests {
+    use bson::doc;
+    use futures_loco_protocol::loco_protocol::command::{Command, Header, Method};
+
+    use super::*;
+
+    #[test]
+    fn current_sync_link_profile_push_uses_synclinkpf_and_parses_olu() {
+        let command = Command {
+            header: Header {
+                id: 1,
+                status: 0,
+                method: Method::new("SYNCLINKPF").unwrap(),
+                data_type: 0,
+            },
+            data: bson::to_vec(&doc! {
+                "olu": {
+                    "userId": 42_i64,
+                    "nn": "profile",
+                    "pv": 4_i64,
+                },
+                "li": 7_i64,
+            })
+            .unwrap()
+            .into_boxed_slice(),
+        };
+
+        let StreamCommand::SyncLinkProfile(profile) =
+            StreamCommand::deserialize_from(command).unwrap()
+        else {
+            panic!("SYNCLINKPF was not recognized")
+        };
+
+        assert_eq!(profile.link_id, 7);
+        assert_eq!(profile.chat_id, None);
+        assert_eq!(profile.open_link_user.user_id, 42);
+        assert_eq!(profile.open_link_user.open_token, -1);
+        assert_eq!(profile.open_link_user.profile_link_id, 0);
+        assert_eq!(profile.open_link_user.privilege.bits(), 4);
+    }
+
+    #[test]
+    fn current_message_push_accepts_android_optional_defaults() {
+        let command = Command {
+            header: Header {
+                id: 1,
+                status: 0,
+                method: Method::new("MSG").unwrap(),
+                data_type: 0,
+            },
+            data: bson::to_vec(&doc! {
+                "chatId": 7_i64,
+                "chatLog": {
+                    "logId": 9_i64,
+                    "chatId": 7_i64,
+                    "prevId": 8_i64,
+                    "type": 1_i32,
+                    "attachment": bson::Bson::Null,
+                },
+            })
+            .unwrap()
+            .into_boxed_slice(),
+        };
+
+        let StreamCommand::Chat(message) = StreamCommand::deserialize_from(command).unwrap() else {
+            panic!("MSG was not recognized")
+        };
+
+        assert!(!message.no_seen);
+        assert_eq!(message.chatlog.author_id, -1);
+        assert_eq!(message.chatlog.send_at, 0);
+        assert_eq!(message.chatlog.chat.message_id, 0);
+        assert_eq!(message.chatlog.chat.content.attachment, None);
+    }
+}

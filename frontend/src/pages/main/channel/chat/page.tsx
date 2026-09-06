@@ -2,12 +2,14 @@ import {
   Show,
   createResource,
   createSignal,
+  onCleanup,
 } from 'solid-js';
 import { useNavigate, useParams } from '@solidjs/router';
 import { useTransContext } from '@jellybrick/solid-i18next';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 
 import { getChannelList, meProfile } from '@/api';
-import { sendText } from '@/api/client';
+import { sendText, setChannelActive } from '@/api/client';
 import { VirtualListRef } from '@/ui-common/virtual-list';
 import { useReady } from '@/pages/main/_hooks';
 import { ChannelHeader } from '../_components/channel-header';
@@ -22,6 +24,8 @@ type ActiveChatProps = {
   channelId: string;
 };
 
+const appWindow = getCurrentWindow();
+
 const ActiveChat = (props: ActiveChatProps) => {
   const isReady = useReady();
   const [t] = useTransContext();
@@ -34,6 +38,35 @@ const ActiveChat = (props: ActiveChatProps) => {
   const [sendError, setSendError] = createSignal<string | null>(null);
   const [observedSelfId, setObservedSelfId] = createSignal<string | undefined>();
   const [scroller, setScroller] = createSignal<VirtualListRef | null>(null);
+  let focused = false;
+  let disposed = false;
+  let unlistenFocus: (() => void) | undefined;
+
+  const publishActiveState = () => {
+    const active = focused && document.visibilityState === 'visible';
+    void setChannelActive(props.channelId, active).catch(() => undefined);
+  };
+
+  void appWindow.isFocused().then((value) => {
+    if (disposed) return;
+    focused = value;
+    publishActiveState();
+  });
+  void appWindow.onFocusChanged(({ payload }) => {
+    focused = payload;
+    publishActiveState();
+  }).then((unlisten) => {
+    if (disposed) unlisten();
+    else unlistenFocus = unlisten;
+  });
+
+  document.addEventListener('visibilitychange', publishActiveState);
+  onCleanup(() => {
+    disposed = true;
+    unlistenFocus?.();
+    document.removeEventListener('visibilitychange', publishActiveState);
+    void setChannelActive(props.channelId, false).catch(() => undefined);
+  });
 
   const [me] = createResource(isReady, async (ready) => ready ? meProfile() : null);
   const [channelInfo] = createResource(
@@ -93,6 +126,8 @@ const ActiveChat = (props: ActiveChatProps) => {
         loading={transcript.loading()}
         error={transcript.error()}
         onLoadMore={transcript.loadMore}
+        onSyncMore={transcript.syncMore}
+        canSyncHistory={transcript.canSyncHistory()}
       />
 
       <Show when={sendError()}>

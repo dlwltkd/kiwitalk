@@ -1,4 +1,39 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
+
+fn deserialize_i64_or<'de, D>(deserializer: D, default: i64) -> Result<i64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(match Option::<bson::Bson>::deserialize(deserializer)? {
+        Some(bson::Bson::Int64(value)) => value,
+        Some(bson::Bson::Int32(value)) => i64::from(value),
+        _ => default,
+    })
+}
+
+fn deserialize_i64_default<'de, D>(deserializer: D) -> Result<i64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    deserialize_i64_or(deserializer, 0)
+}
+
+fn deserialize_author_id<'de, D>(deserializer: D) -> Result<i64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    deserialize_i64_or(deserializer, -1)
+}
+
+fn deserialize_optional_string_lossy<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(match Option::<bson::Bson>::deserialize(deserializer)? {
+        Some(bson::Bson::String(value)) => Some(value),
+        _ => None,
+    })
+}
 
 /// Chat
 #[derive(Debug, Deserialize, Clone, PartialEq, Eq)]
@@ -12,10 +47,18 @@ pub struct Chatlog {
     #[serde(rename = "chatId")]
     pub channel_id: i64,
 
-    #[serde(rename = "authorId")]
+    #[serde(
+        default = "default_author_id",
+        rename = "authorId",
+        deserialize_with = "deserialize_author_id"
+    )]
     pub author_id: i64,
 
-    #[serde(rename = "sendAt")]
+    #[serde(
+        default,
+        rename = "sendAt",
+        deserialize_with = "deserialize_i64_default"
+    )]
     pub send_at: i64,
 
     #[serde(flatten)]
@@ -32,14 +75,25 @@ pub struct Chat {
     #[serde(flatten)]
     pub content: ChatContent,
 
-    #[serde(rename = "msgId")]
+    #[serde(
+        default,
+        rename = "msgId",
+        deserialize_with = "deserialize_i64_default"
+    )]
     pub message_id: i64,
+}
+
+const fn default_author_id() -> i64 {
+    -1
 }
 
 #[derive(Debug, Deserialize, Default, Clone, PartialEq, Eq)]
 pub struct ChatContent {
+    #[serde(default, deserialize_with = "deserialize_optional_string_lossy")]
     pub message: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_string_lossy")]
     pub attachment: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_string_lossy")]
     pub supplement: Option<String>,
 }
 

@@ -12,6 +12,7 @@ use crate::{
         model::{
             channel::{meta::ChannelMetaRow, ChannelListRow},
             chat::ChatRow,
+            user::UserProfileRow,
         },
         schema::{channel_history_sync, channel_list, channel_meta, chat, user_profile},
         DatabasePool, PoolTaskError,
@@ -44,27 +45,95 @@ impl ChannelUpdater {
             .map(|meta| ChannelMetaRow::from_meta(self.id, meta))
             .collect::<Vec<_>>();
 
-        let (channel_type, normal) = match res.channel_type {
-            ChannelInfoType::DirectChat(normal) => (ChannelType::DirectChat, normal),
-            ChannelInfoType::MultiChat(normal) => (ChannelType::MultiChat, normal),
-            ChannelInfoType::MemoChat(normal) => (ChannelType::MemoChat, normal),
-            _ => return Ok(None),
+        let (channel_type, display_members, normal) = match res.channel_type {
+            ChannelInfoType::DirectChat(normal) => (
+                ChannelType::DirectChat,
+                normal
+                    .display_members
+                    .iter()
+                    .map(|user| {
+                        (
+                            user.user_id,
+                            user.nickname.clone(),
+                            user.profile_image_url.clone().unwrap_or_default(),
+                        )
+                    })
+                    .collect::<Vec<_>>(),
+                Some(normal),
+            ),
+            ChannelInfoType::MultiChat(normal) => (
+                ChannelType::MultiChat,
+                normal
+                    .display_members
+                    .iter()
+                    .map(|user| {
+                        (
+                            user.user_id,
+                            user.nickname.clone(),
+                            user.profile_image_url.clone().unwrap_or_default(),
+                        )
+                    })
+                    .collect::<Vec<_>>(),
+                Some(normal),
+            ),
+            ChannelInfoType::MemoChat(normal) => (
+                ChannelType::MemoChat,
+                normal
+                    .display_members
+                    .iter()
+                    .map(|user| {
+                        (
+                            user.user_id,
+                            user.nickname.clone(),
+                            user.profile_image_url.clone().unwrap_or_default(),
+                        )
+                    })
+                    .collect::<Vec<_>>(),
+                Some(normal),
+            ),
+            ChannelInfoType::OpenDirect(open) => (
+                ChannelType::OpenDirect,
+                open.display_members
+                    .into_iter()
+                    .map(|user| {
+                        (
+                            user.user_id,
+                            user.nickname,
+                            user.profile_image_url.unwrap_or_default(),
+                        )
+                    })
+                    .collect::<Vec<_>>(),
+                None,
+            ),
+            ChannelInfoType::OpenMulti(open) => (
+                ChannelType::OpenMulti,
+                open.display_members
+                    .into_iter()
+                    .map(|user| {
+                        (
+                            user.user_id,
+                            user.nickname,
+                            user.profile_image_url.unwrap_or_default(),
+                        )
+                    })
+                    .collect::<Vec<_>>(),
+                None,
+            ),
+            ChannelInfoType::Other => return Ok(None),
         };
 
-        let display_user_ids = normal
-            .display_members
+        let display_user_ids = display_members
             .iter()
-            .map(|user| user.user_id)
+            .map(|(user_id, _, _)| *user_id)
             .collect::<Vec<_>>();
 
         let fallback_title = if !meta_rows
             .iter()
             .any(|meta| meta.meta_type == ChannelMetaType::Title as i32)
         {
-            let title = normal
-                .display_members
+            let title = display_members
                 .iter()
-                .map(|user| user.nickname.trim())
+                .map(|(_, nickname, _)| nickname.trim())
                 .filter(|nickname| !nickname.is_empty())
                 .collect::<Vec<_>>()
                 .join(", ");
@@ -81,6 +150,16 @@ impl ChannelUpdater {
             None
         };
 
+        let last_update = res
+            .last_chatlog
+            .as_ref()
+            .map(|chatlog| chatlog.send_at)
+            .unwrap_or_default();
+        let last_log_id = res
+            .last_chatlog
+            .as_ref()
+            .map(|chatlog| chatlog.log_id)
+            .unwrap_or_default();
         let list_row = ChannelListRow {
             id: self.id,
             channel_type: channel_type.as_str().to_owned(),
@@ -89,7 +168,10 @@ impl ChannelUpdater {
             active_user_count: res.active_member_count,
             unread_count: res.new_chat_count,
             last_seen_log_id: Some(res.last_seen_log_id),
-            last_update: 0,
+            last_update,
+            room_token: 0,
+            push_alert: res.push_alert,
+            last_log_id,
         };
         let last_chat = res
             .last_chatlog
@@ -97,7 +179,7 @@ impl ChannelUpdater {
 
         pool.spawn_transaction(move |conn| {
             diesel::insert_or_ignore_into(channel_list::table)
-                .values(list_row)
+                .values(&list_row)
                 .execute(conn)?;
 
             if !meta_rows.is_empty() {
@@ -118,13 +200,28 @@ impl ChannelUpdater {
                     .execute(conn)?;
             }
 
+            for (user_id, nickname, profile_url) in &display_members {
+                diesel::insert_or_ignore_into(user_profile::table)
+                    .values(UserProfileRow {
+                        id: *user_id,
+                        channel_id: list_row.id,
+                        nickname,
+                        profile_url,
+                        full_profile_url: profile_url,
+                        original_profile_url: profile_url,
+                    })
+                    .execute(conn)?;
+            }
+
             Ok(())
         })
         .await?;
 
-        NormalChannelUpdater::new(self.id)
-            .initialize(session, pool, normal, |_| Ok(()))
-            .await?;
+        if let Some(normal) = normal {
+            NormalChannelUpdater::new(self.id)
+                .initialize(session, pool, normal, |_| Ok(()))
+                .await?;
+        }
 
         Ok(Some(()))
     }
@@ -153,6 +250,8 @@ impl ChannelUpdater {
             ChannelType::DirectChat | ChannelType::MultiChat | ChannelType::MemoChat => {
                 NormalChannelUpdater::new(self.id).remove(conn)?;
             }
+
+            ChannelType::OpenDirect | ChannelType::OpenMulti => {}
 
             _ => return Ok(None),
         }

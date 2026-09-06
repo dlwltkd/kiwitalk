@@ -67,4 +67,6 @@ export type ChannelListItem = {
   unreadCount: number;
 
   userCount: number;
+
+  pushAlert: boolean;
 };

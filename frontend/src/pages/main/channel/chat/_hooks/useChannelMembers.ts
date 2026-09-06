@@ -1,6 +1,6 @@
 import { Accessor, createEffect, createSignal, on } from 'solid-js';
 
-import { Channel, NormalChannelUser } from '@/api/client';
+import { Channel, ChannelUser } from '@/api/client';
 import { useChannelEvent } from '@/pages/main/_hooks';
 
 export const useChannelMembers = (
@@ -9,10 +9,10 @@ export const useChannelMembers = (
 ) => {
   const event = useChannelEvent();
 
-  const [members, setMembers] = createSignal<Record<string, NormalChannelUser>>({});
+  const [members, setMembers] = createSignal<Record<string, ChannelUser>>({});
 
   createEffect(on(channel, (channel) => {
-    if (channel?.kind === 'normal') {
+    if (channel?.kind === 'normal' || channel?.kind === 'open') {
       setMembers(Object.fromEntries(channel.content.users));
     } else {
       setMembers({});
@@ -23,7 +23,7 @@ export const useChannelMembers = (
     if (!e || e.channelId !== channelId()) return;
 
     if (e.type === 'Chat') {
-      const { senderId: userId, logId } = e.content;
+      const { senderId: userId, logId } = e.content.chat;
 
       setMembers((members) => {
         const result = { ...members };

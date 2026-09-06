@@ -9,11 +9,12 @@ const loadChannelOnce = (id: string) => {
   const cached = channelLoaders.get(id);
   if (cached) return cached;
 
-  const request = loadChannel(id).catch((error) => {
-    channelLoaders.delete(id);
-    throw error;
-  });
+  const request = loadChannel(id);
   channelLoaders.set(id, request);
+  const clear = () => {
+    if (channelLoaders.get(id) === request) channelLoaders.delete(id);
+  };
+  void request.then(clear, clear);
 
   return request;
 };

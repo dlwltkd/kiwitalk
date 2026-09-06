@@ -7,6 +7,8 @@ export const container = style({
   minWidth: 0,
   minHeight: 0,
   overflow: 'hidden',
+  display: 'grid',
+  gridTemplateRows: 'auto minmax(0, 1fr)',
   background: vars.color.terminal.background,
 });
 
@@ -25,23 +27,31 @@ export const virtualList = styleVariants({
   },
 });
 
-const noticeBase = style({
-  position: 'absolute',
-  top: '6px',
-  left: '50%',
-  zIndex: vars.layer.head,
-  padding: '3px 7px',
-  background: vars.color.terminal.surfaceRaised,
-  border: `1px solid ${vars.color.terminal.border}`,
-  fontSize: '9px',
-  transform: 'translateX(-50%)',
-  whiteSpace: 'nowrap',
+export const historyBar = style({
+  display: 'flex',
+  flexWrap: 'wrap',
+  alignItems: 'center',
+  gap: '6px 12px',
+  minHeight: '28px',
+  padding: '5px 12px',
+  borderBottom: `1px solid ${vars.color.terminal.border}`,
+  color: vars.color.terminal.foregroundMuted,
+  fontSize: '10px',
 });
 
-export const notice = styleVariants({
-  loading: [noticeBase, { color: vars.color.terminal.foregroundMuted }],
-  error: [noticeBase, { color: vars.color.red400 }],
-  end: [noticeBase, { color: vars.color.terminal.foregroundMuted }],
+export const historyWarning = style({
+  flex: '1 1 240px',
+});
+
+export const historyButton = style({
+  padding: '4px 7px',
+  border: `1px solid ${vars.color.terminal.border}`,
+  color: vars.color.terminal.accent,
+  background: vars.color.terminal.surface,
+  font: 'inherit',
+  cursor: 'pointer',
+  ':hover': { background: vars.color.terminal.surfaceRaised },
+  ':focus-visible': { outline: `1px solid ${vars.color.terminal.accent}`, outlineOffset: '2px' },
 });
 
 export const empty = style({
@@ -55,8 +65,4 @@ export const empty = style({
   color: vars.color.terminal.foregroundMuted,
   fontSize: '10px',
   pointerEvents: 'none',
-});
-
-export const emptyCommand = style({
-  color: vars.color.terminal.accent,
 });

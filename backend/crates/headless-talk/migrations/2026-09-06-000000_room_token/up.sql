@@ -1,0 +1,2 @@
+ALTER TABLE channel_list
+ADD COLUMN room_token BIGINT NOT NULL DEFAULT 0;

@@ -43,7 +43,7 @@ export const useChannelList = () => {
           (item.displayUsers.length === 1 ?
             item.displayUsers[0].profileUrl :
             undefined),
-          silent: false, // TODO
+          silent: !item.pushAlert,
         });
       }
 
@@ -89,16 +89,21 @@ export const useChannelList = () => {
     newChannelList[index] = channel;
 
     if (e.type === 'Chat') {
-      if (e.content.senderId !== myProfile()?.profile.id) channel.unreadCount += 1;
+      const chat = e.content.chat;
+      if (!e.content.read && chat.senderId !== myProfile()?.profile.id) channel.unreadCount += 1;
+      else if (e.content.read) channel.unreadCount = 0;
       channel.lastChat = {
-        chatType: e.content.chatType,
-        content: e.content.content,
-        attachment: e.content.attachment,
-        timestamp: new Date(e.content.sendAt * 1000),
+        chatType: chat.chatType,
+        content: chat.content,
+        attachment: chat.attachment,
+        timestamp: new Date(chat.sendAt * 1000),
       };
     }
     if (e.type === 'ChatRead' && e?.content.userId === myProfile()?.profile.id) {
       channel.unreadCount = 0;
+    }
+    if (e.type === 'UnreadChanged') {
+      channel.unreadCount = e.content.unreadCount;
     }
     setChannelList(newChannelList);
   }));

@@ -2,20 +2,21 @@ pub mod normal;
 pub mod open;
 
 use std::ops::Bound;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::{
     conn::Conn,
     database::{
         model::{channel::ChannelListRow, chat::ChatRow},
-        schema::{chat, user_profile},
-        DatabasePool, PoolTaskError,
+        schema::{channel_list, chat, user_profile},
+        PoolTaskError,
     },
     user::{DisplayUser, DisplayUserProfile},
     ClientResult,
 };
 use diesel::{
     dsl::sql, sql_types::Integer, BoolExpressionMethods, ExpressionMethods, OptionalExtension,
-    QueryDsl, RunQueryDsl,
+    QueryDsl, RunQueryDsl, SqliteConnection,
 };
 use nohash_hasher::IntMap;
 use serde::Deserialize;
@@ -26,6 +27,24 @@ use talk_loco_client::talk::{
 };
 
 use self::{normal::NormalChannel, open::OpenChannel};
+
+fn leave_source(channel_type: &ChannelType) -> String {
+    let tracker = match channel_type {
+        ChannelType::DirectChat => "d",
+        ChannelType::MultiChat => "m",
+        ChannelType::OpenDirect => "od",
+        ChannelType::OpenMulti => "om",
+        ChannelType::MemoChat => "me",
+        ChannelType::PlusChat => "p",
+        ChannelType::Other(_) => "unknown",
+    };
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis();
+
+    format!("{tracker}|{now}|")
+}
 
 pub type ChannelMetaMap = IntMap<i32, ChannelMeta>;
 
@@ -62,6 +81,8 @@ pub struct ChannelListItem {
 
     pub active_user_count: i32,
 
+    pub push_alert: bool,
+
     pub profile: ListChannelProfile,
 }
 
@@ -92,24 +113,29 @@ impl<'a> ChannelOp<'a> {
                 no_seen,
                 attachment: chat.content.attachment.as_deref(),
                 supplement: chat.content.supplement.as_deref(),
+                from: None,
+                scope: 1,
+                thread_id: None,
+                feature_stat: None,
+                silence: false,
             })
             .await?;
 
         let logged = res.chatlog.unwrap_or_else(|| {
             let mut chat = chat;
-            if res.msg_id != 0 {
-                chat.message_id = res.msg_id;
+            if let Some(msg_id) = res.msg_id {
+                chat.message_id = msg_id;
             }
 
             Chatlog {
                 channel_id: self.id,
 
                 log_id: res.log_id,
-                prev_log_id: Some(res.prev_id),
+                prev_log_id: res.prev_id,
 
                 author_id: self.conn.user_id,
 
-                send_at: res.send_at,
+                send_at: res.send_at.map(i64::from).unwrap_or_default(),
 
                 chat,
 
@@ -124,7 +150,17 @@ impl<'a> ChannelOp<'a> {
 
                 move |conn| {
                     diesel::replace_into(chat::table)
-                        .values(ChatRow::from_chatlog(logged, None))
+                        .values(ChatRow::from_chatlog(logged.clone(), None))
+                        .execute(conn)?;
+
+                    diesel::update(channel_list::table)
+                        .filter(channel_list::id.eq(logged.channel_id))
+                        .set((
+                            channel_list::unread_count.eq(0),
+                            channel_list::last_seen_log_id.eq(Some(logged.log_id)),
+                            channel_list::last_update.eq(logged.send_at),
+                            channel_list::last_log_id.eq(logged.log_id),
+                        ))
                         .execute(conn)?;
 
                     Ok(())
@@ -217,92 +253,96 @@ impl<'a> ChannelOp<'a> {
     }
 }
 
-pub(crate) async fn load_list_item(
-    pool: &DatabasePool,
+pub(crate) fn load_list_item(
+    conn: &mut SqliteConnection,
     row: &ChannelListRow,
 ) -> Result<Option<ChannelListItem>, PoolTaskError> {
     let channel_type = ChannelType::from(row.channel_type.as_str());
+    let channel_id = row.id;
+    let display_user_id_list =
+        serde_json::from_str::<Vec<i64>>(&row.display_users).unwrap_or_default();
 
-    let (last_chat, display_users) = pool
-        .spawn_transaction({
-            let channel_id = row.id;
-            let display_user_id_list =
-                serde_json::from_str::<Vec<i64>>(&row.display_users).unwrap_or_default();
+    let last_chat: Option<Chatlog> = chat::table
+        .filter(
+            chat::channel_id
+                .eq(channel_id)
+                .and(chat::deleted_time.is_null()),
+        )
+        .order(chat::log_id.desc())
+        .select(chat::all_columns)
+        .first::<ChatRow>(conn)
+        .optional()?
+        .map(Into::into);
 
-            move |conn| {
-                let last_chat: Option<Chatlog> = chat::table
-                    .filter(
-                        chat::channel_id
-                            .eq(channel_id)
-                            .and(chat::deleted_time.is_null()),
-                    )
-                    .order(chat::log_id.desc())
-                    .select(chat::all_columns)
-                    .first::<ChatRow>(conn)
-                    .optional()?
-                    .map(Into::into);
+    let last_chat: Option<ListPreviewChat> = if let Some(chat) = last_chat {
+        let user = if let Some((nickname, image_url)) = user_profile::table
+            .select((user_profile::nickname, user_profile::profile_url))
+            .filter(
+                user_profile::channel_id
+                    .eq(channel_id)
+                    .and(user_profile::id.eq(chat.author_id)),
+            )
+            .first::<(String, String)>(conn)
+            .optional()?
+        {
+            Some(DisplayUser {
+                id: chat.author_id,
+                profile: DisplayUserProfile {
+                    nickname,
+                    image_url: Some(image_url),
+                },
+            })
+        } else {
+            None
+        };
 
-                let last_chat: Option<ListPreviewChat> = if let Some(chat) = last_chat {
-                    let user = if let Some((nickname, image_url)) = user_profile::table
-                        .select((user_profile::nickname, user_profile::profile_url))
-                        .filter(
-                            user_profile::channel_id
-                                .eq(channel_id)
-                                .and(user_profile::id.eq(chat.author_id)),
-                        )
-                        .first::<(String, String)>(conn)
-                        .optional()?
-                    {
-                        Some(DisplayUser {
-                            id: chat.author_id,
-                            profile: DisplayUserProfile {
-                                nickname,
-                                image_url: Some(image_url),
-                            },
-                        })
-                    } else {
-                        None
-                    };
-
-                    Some(ListPreviewChat {
-                        user,
-                        chatlog: chat,
-                    })
-                } else {
-                    None
-                };
-
-                let mut display_users = Vec::<DisplayUser>::new();
-
-                for id in display_user_id_list {
-                    if let Some((nickname, profile_url)) = user_profile::table
-                        .select((user_profile::nickname, user_profile::profile_url))
-                        .filter(
-                            user_profile::channel_id
-                                .eq(channel_id)
-                                .and(user_profile::id.eq(id)),
-                        )
-                        .first::<(String, String)>(conn)
-                        .optional()?
-                    {
-                        display_users.push(DisplayUser {
-                            id,
-                            profile: DisplayUserProfile {
-                                nickname,
-                                image_url: Some(profile_url),
-                            },
-                        });
-                    }
-                }
-
-                Ok((last_chat, display_users))
-            }
+        Some(ListPreviewChat {
+            user,
+            chatlog: chat,
         })
-        .await?;
+    } else {
+        None
+    };
+
+    let profiles = user_profile::table
+        .select((
+            user_profile::id,
+            user_profile::nickname,
+            user_profile::profile_url,
+        ))
+        .filter(
+            user_profile::channel_id
+                .eq(channel_id)
+                .and(user_profile::id.eq_any(&display_user_id_list)),
+        )
+        .load::<(i64, String, String)>(conn)?;
+    let profile_map = IntMap::from_iter(
+        profiles
+            .into_iter()
+            .map(|(id, nickname, profile_url)| (id, (nickname, profile_url))),
+    );
+    let display_users = display_user_id_list
+        .into_iter()
+        .filter_map(|id| {
+            profile_map
+                .get(&id)
+                .map(|(nickname, profile_url)| DisplayUser {
+                    id,
+                    profile: DisplayUserProfile {
+                        nickname: nickname.clone(),
+                        image_url: Some(profile_url.clone()),
+                    },
+                })
+        })
+        .collect::<Vec<_>>();
 
     let profile = match channel_type {
         ChannelType::DirectChat | ChannelType::MultiChat | ChannelType::MemoChat => {
-            normal::load_list_profile(pool, &display_users, row).await?
+            normal::load_list_profile(conn, &display_users, row)?
+        }
+
+        ChannelType::OpenDirect | ChannelType::OpenMulti => {
+            normal::load_list_profile(conn, &display_users, row)?
         }
 
         _ => return Ok(None),
@@ -314,6 +354,7 @@ pub(crate) async fn load_list_item(
         display_users,
         unread_count: row.unread_count,
         active_user_count: row.active_user_count,
+        push_alert: row.push_alert,
         profile,
     }))
 }

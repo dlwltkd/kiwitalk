@@ -26,7 +26,7 @@ use crate::{
             },
         },
         schema::{channel_list, channel_meta, normal_channel_user, user_profile},
-        DatabasePool, PoolTaskError,
+        PoolTaskError,
     },
     updater::channel::ChannelUpdater,
     user::DisplayUser,
@@ -35,7 +35,7 @@ use crate::{
 
 use self::user::NormalChannelUser;
 
-use super::{ChannelMetaMap, ListChannelProfile, UserList};
+use super::{leave_source, ChannelMetaMap, ListChannelProfile, UserList};
 
 #[derive(Debug, Clone)]
 pub struct NormalChannel {
@@ -62,17 +62,15 @@ impl<'a> NormalChannelOp<'a> {
     pub async fn read_chat(self, watermark: i64) -> ClientResult<()> {
         let id = self.id;
 
-        TalkSession(&self.conn.session)
-            .normal_channel(id)
-            .noti_read(watermark)
-            .await?;
-
         self.conn
             .pool
             .spawn(move |conn| {
                 diesel::update(channel_list::table)
                     .filter(channel_list::id.eq(id))
-                    .set(channel_list::last_seen_log_id.eq(watermark))
+                    .set((
+                        channel_list::last_seen_log_id.eq(watermark),
+                        channel_list::unread_count.eq(0),
+                    ))
                     .execute(conn)?;
 
                 Ok(())
@@ -84,10 +82,23 @@ impl<'a> NormalChannelOp<'a> {
 
     pub async fn leave(self, block: bool) -> ClientResult<()> {
         let id = self.id;
+        let channel_type = self
+            .conn
+            .pool
+            .spawn(move |conn| {
+                Ok(channel_list::table
+                    .filter(channel_list::id.eq(id))
+                    .select(channel_list::type_)
+                    .first::<String>(conn)?)
+            })
+            .await?;
+        let from = leave_source(&talk_loco_client::talk::channel::ChannelType::from(
+            channel_type.as_str(),
+        ));
 
         TalkSession(&self.conn.session)
             .normal_channel(id)
-            .leave(block)
+            .leave(block, &from)
             .await?;
 
         self.conn
@@ -99,38 +110,31 @@ impl<'a> NormalChannelOp<'a> {
     }
 }
 
-pub(super) async fn load_list_profile(
-    pool: &DatabasePool,
+pub(super) fn load_list_profile(
+    conn: &mut SqliteConnection,
     display_users: &[DisplayUser],
     row: &ChannelListRow,
 ) -> Result<ListChannelProfile, PoolTaskError> {
     let id = row.id;
+    let name: Option<String> = channel_meta::table
+        .filter(
+            channel_meta::channel_id
+                .eq(id)
+                .and(channel_meta::type_.eq(ChannelMetaType::Title as i32)),
+        )
+        .select(channel_meta::content)
+        .first(conn)
+        .optional()?;
 
-    let (name, image_meta) = pool
-        .spawn(move |conn| {
-            let name: Option<String> = channel_meta::table
-                .filter(
-                    channel_meta::channel_id
-                        .eq(id)
-                        .and(channel_meta::type_.eq(ChannelMetaType::Title as i32)),
-                )
-                .select(channel_meta::content)
-                .first(conn)
-                .optional()?;
-
-            let image_url: Option<String> = channel_meta::table
-                .filter(
-                    channel_meta::channel_id
-                        .eq(id)
-                        .and(channel_meta::type_.eq(ChannelMetaType::Profile as i32)),
-                )
-                .select(channel_meta::content)
-                .first(conn)
-                .optional()?;
-
-            Ok((name, image_url))
-        })
-        .await?;
+    let image_meta: Option<String> = channel_meta::table
+        .filter(
+            channel_meta::channel_id
+                .eq(id)
+                .and(channel_meta::type_.eq(ChannelMetaType::Profile as i32)),
+        )
+        .select(channel_meta::content)
+        .first(conn)
+        .optional()?;
 
     let name = name.unwrap_or_else(|| {
         display_users

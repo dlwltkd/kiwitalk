@@ -51,6 +51,7 @@ pub(crate) struct ChannelListItem {
 
     user_count: i32,
     unread_count: i32,
+    push_alert: bool,
 }
 
 impl From<headless_talk::channel::ChannelListItem> for ChannelListItem {
@@ -67,6 +68,7 @@ impl From<headless_talk::channel::ChannelListItem> for ChannelListItem {
             profile: item.profile.image.map(ProfileImage::from),
             user_count: item.active_user_count,
             unread_count: item.unread_count,
+            push_alert: item.push_alert,
         }
     }
 }

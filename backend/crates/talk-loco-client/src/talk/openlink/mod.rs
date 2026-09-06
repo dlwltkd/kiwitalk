@@ -32,8 +32,8 @@ pub enum OpenProfileType {
 }
 
 bitflags! {
-    #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash)]
-    pub struct LinkPrivilegeMask: i32 {
+    #[derive(Debug, Default, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash)]
+    pub struct LinkPrivilegeMask: i64 {
         const URL_SHARABLE = 2;
         const REPORTABLE = 4;
         const PROFILE_EDITABLE = 8;
@@ -86,20 +86,24 @@ pub struct OpenLinkUser {
 
     /// See OpenMemberType for types.
     #[serde(rename = "lmt")]
-    pub open_member_type: i32,
+    pub open_member_type: Option<i32>,
 
     /// See OpenProfileType for types.
     #[serde(rename = "ptp")]
-    pub profile_type: i32,
+    pub profile_type: Option<i32>,
 
     /// Profile link id
-    #[serde(rename = "pli")]
-    pub profile_link_id: Option<i64>,
+    #[serde(default, rename = "pli")]
+    pub profile_link_id: i64,
 
-    #[serde(rename = "opt")]
-    pub open_token: i64,
+    #[serde(default = "default_open_link_token", rename = "opt")]
+    pub open_token: i32,
 
     /// See LinkPrivilegeMask for more detail.
-    #[serde(rename = "pv")]
+    #[serde(default, rename = "pv")]
     pub privilege: LinkPrivilegeMask,
+}
+
+const fn default_open_link_token() -> i32 {
+    -1
 }

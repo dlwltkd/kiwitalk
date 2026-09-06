@@ -8,6 +8,7 @@ import {
   For,
   mergeProps,
   on,
+  onCleanup,
   onMount,
   splitProps,
   untrack,
@@ -104,7 +105,6 @@ export const VirtualList = <
   );
 
   const [alignToBottom, setAlignToBottom] = createSignal<boolean>(local.alignToBottom);
-  const [frameHeight, setFrameHeight] = createSignal(0);
   const [topPadding, setTopPadding] = createSignal(0);
   const [bottomPadding, setBottomPadding] = createSignal(0);
   const [range, setRange] = createSignal<[number, number]>([0, 30]);
@@ -128,7 +128,23 @@ export const VirtualList = <
     return Number(itemHeights.get(index) ?? defaultValue);
   };
 
-  const calculateRange = (scroll: number, height: number) => {
+  const measureRenderedItems = () => {
+    if (!parentRef) return;
+
+    const [start, end] = untrack(() => range());
+    const children = Array.from(parentRef.children);
+
+    for (let i = start; i < end; i++) {
+      const child = children[i - start + 1];
+      if (!child || itemHeights.has(i)) continue;
+
+      itemHeights.set(i, child.getBoundingClientRect().height || defaultItemHeight);
+    }
+  };
+
+  const calculateRange = (scroll: number, height: number, measure = true) => {
+    if (measure) measureRenderedItems();
+
     const [start, end] = untrack(() => range());
     const [newStart, newEnd] = calculateVisibleRange(
       scroll,
@@ -136,33 +152,21 @@ export const VirtualList = <
       { getHeight, overscan: local.overscan, length: items().length },
     );
 
-    if (start !== newStart || end !== newEnd) {
-      const children = Array.from(parentRef!.children);
-      for (let i = newStart; i < newEnd; i++) {
-        if (!children[i - start + 1]) continue;
-        if (itemHeights.has(i)) continue;
+    let newTop = 0;
+    let newBottom = 0;
 
-        const rect = children[i - start + 1].getBoundingClientRect();
-
-        itemHeights.set(i, rect.height ?? defaultItemHeight);
-      }
-
-      let newTop = 0;
-      let newBottom = 0;
-
-      for (let i = 0; i < newStart; i++) {
-        newTop += itemHeights.get(i) ?? defaultItemHeight;
-      }
-      for (let i = newEnd; i < items().length; i++) {
-        newBottom += itemHeights.get(i) ?? defaultItemHeight;
-      }
-
-      batch(() => {
-        setRange([newStart, newEnd]);
-        setTopPadding(newTop);
-        setBottomPadding(newBottom);
-      });
+    for (let i = 0; i < newStart; i++) {
+      newTop += itemHeights.get(i) ?? defaultItemHeight;
     }
+    for (let i = newEnd; i < items().length; i++) {
+      newBottom += itemHeights.get(i) ?? defaultItemHeight;
+    }
+
+    batch(() => {
+      if (start !== newStart || end !== newEnd) setRange([newStart, newEnd]);
+      setTopPadding(newTop);
+      setBottomPadding(newBottom);
+    });
   };
 
   let ignoreAlignScroll = false;
@@ -209,10 +213,6 @@ export const VirtualList = <
     }
   };
   onMount(() => {
-    const frameRect = frameRef?.getBoundingClientRect();
-
-    if (frameRect && frameHeight() === 0) setFrameHeight(frameRect.height);
-
     tryAlignToBottom();
   });
 
@@ -224,41 +224,59 @@ export const VirtualList = <
   createEffect(on(items, () => {
     if (!parentRef || !frameRef) return;
 
-    const scroll = parentRef.scrollTop;
-    const height = parentRef.clientHeight;
+    itemHeights.clear();
+    const scroll = frameRef.scrollTop;
+    const height = frameRef.clientHeight;
 
-    calculateRange(scroll, height);
+    calculateRange(scroll, height, false);
     if (local.alignToBottom) setAlignToBottom(true);
 
     tryAlignToBottom();
   }));
 
+  let resizeFrame: number | null = null;
   const resizeObserver = new ResizeObserver((entries) => {
     for (const entry of entries) {
       const index = Number(entry.target.getAttribute('data-sorted-index'));
 
       if (Number.isFinite(index)) {
-        const rect = entry.target.getBoundingClientRect();
-
-        itemHeights.set(index, rect.height ?? defaultItemHeight);
+        itemHeights.set(index, entry.target.getBoundingClientRect().height || defaultItemHeight);
         tryAlignToBottom();
       }
     }
+
+    if (resizeFrame === null) {
+      resizeFrame = requestAnimationFrame(() => {
+        resizeFrame = null;
+        if (frameRef) calculateRange(frameRef.scrollTop, frameRef.clientHeight, false);
+      });
+    }
   });
-  createEffect(on(range, ([start, end]) => {
-    const children = Array.from(parentRef!.children);
+  createEffect(() => {
+    const [start, end] = range();
+    items();
+    if (!parentRef) return;
+
+    const children = Array.from(parentRef.children);
     resizeObserver.disconnect();
 
     for (let i = start; i < end; i++) {
-      if (!children[i - start + 1]) continue;
+      const child = children[i - start + 1];
+      if (!child) continue;
 
       const index = local.reverse ? items().length - i - 1 : i;
 
-      children[i - start + 1].setAttribute('data-sorted-index', i.toString());
-      children[i - start + 1].setAttribute('data-index', index.toString());
-      resizeObserver.observe(children[i - start + 1]);
+      child.setAttribute('data-sorted-index', i.toString());
+      child.setAttribute('data-index', index.toString());
+      resizeObserver.observe(child);
     }
-  }));
+  });
+
+  onCleanup(() => {
+    resizeObserver.disconnect();
+    if (resizeFrame !== null) cancelAnimationFrame(resizeFrame);
+    if (cancelAlignScroll !== null) cancelAnimationFrame(cancelAlignScroll);
+  });
 
   const outerClassList = () => {
     const list: Record<string, boolean> = {

@@ -42,26 +42,33 @@ async fn handle_channel_event<R: Runtime>(
         TalkChannelEvent::Chat {
             chat,
             user_nickname,
+            read,
+            notify,
             ..
         } => {
             tx.enqueue(Ok(ClientEvent::Channel {
                 id: id.to_string(),
-                event: ChannelEvent::Chat(chat.clone().into()),
+                event: ChannelEvent::Chat {
+                    chat: chat.clone().into(),
+                    read,
+                },
             }));
 
-            let message = chat
-                .chat
-                .content
-                .message
-                .as_deref()
-                .unwrap_or("Unknown message");
+            if notify {
+                let message = chat
+                    .chat
+                    .content
+                    .message
+                    .as_deref()
+                    .unwrap_or("Unknown message");
 
-            let _ = app
-                .notification()
-                .builder()
-                .title(user_nickname.as_deref().unwrap_or("KiwiTalk"))
-                .body(message)
-                .show();
+                let _ = app
+                    .notification()
+                    .builder()
+                    .title(user_nickname.as_deref().unwrap_or("KiwiTalk"))
+                    .body(message)
+                    .show();
+            }
         }
 
         TalkChannelEvent::ChatRead { user_id, log_id } => {

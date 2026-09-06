@@ -64,9 +64,12 @@ pub async fn init<R: Runtime>(name: &'static str) -> anyhow::Result<TauriPlugin<
             next_event,
             channel_list::channel_list,
             channel::load_channel,
+            channel::channel_set_active,
             channel::channel_sync_history,
             channel::channel_send_text,
             channel::channel_load_chat,
+            channel::channel_load_archive,
+            channel::channel_import_archive,
             channel::normal::normal_channel_read_chat,
         ])
         .build())
@@ -197,6 +200,7 @@ struct Inner {
     talk: Arc<HeadlessTalk>,
     event_tx: EventSender,
     event_rx: mpsc::Receiver<anyhow::Result<ClientEvent>>,
+    message_id_device_hash: i64,
 }
 
 #[derive(Debug)]
@@ -255,6 +259,8 @@ impl Client {
         profile: kiwi_talk_api::protocol::ProtocolProfile,
     ) -> anyhow::Result<()> {
         let info = get_system_info();
+        let message_id_device_hash =
+            channel::android_message_id_device_hash(credential.device_uuid);
 
         let user_dir = info.data_dir.join("userdata").join({
             let mut digest = Sha256::new();
@@ -269,18 +275,16 @@ impl Client {
             .await
             .context("cannot create user directory")?;
 
-        let checkin = checkin(user_id, profile).await.map_err(|error| {
+        let checkin = checkin(user_id, profile).await.inspect_err(|_| {
             log::warn!("native chat startup failed; stage=checkin");
-            error
         })?;
 
         let loco_port = u16::try_from(checkin.port).context("CHECKIN returned an invalid port")?;
 
         let stream = create_secure_stream((checkin.host.as_str(), loco_port))
             .await
-            .map_err(|error| {
+            .inspect_err(|_| {
                 log::warn!("native chat startup failed; stage=secure_stream");
-                error
             })
             .context("failed to create secure stream")?;
         let client = LocoClient::new(stream);
@@ -299,15 +303,15 @@ impl Client {
                 include_pc_status: profile.include_pc_status(),
                 background: profile.background(),
                 last_chat_id: profile.last_chat_id(),
+                is_switching: profile.is_switching(),
                 login_response_type:
                     talk_loco_client::talk::session::login::ResponseType::AndroidSubdevice,
             },
             user_dir.join("client.db").to_string_lossy(),
         )
         .await
-        .map_err(|error| {
+        .inspect_err(|_| {
             log::warn!("native chat startup failed; stage=local_database");
-            error
         })
         .context("failed to login")?;
 
@@ -335,9 +339,8 @@ impl Client {
                 }
             })
             .await
-            .map_err(|error| {
+            .inspect_err(|_| {
                 log::warn!("native chat startup failed; stage=loginlist");
-                error
             })
             .context("failed to initialize client")?;
 
@@ -347,6 +350,7 @@ impl Client {
             talk: Arc::new(talk),
             event_tx,
             event_rx,
+            message_id_device_hash,
         });
 
         Ok(())
@@ -370,6 +374,10 @@ impl Client {
 
     fn event_sender(&self) -> anyhow::Result<EventSender> {
         self.with(|inner| inner.event_tx.clone())
+    }
+
+    fn message_id_device_hash(&self) -> anyhow::Result<i64> {
+        self.with(|inner| inner.message_id_device_hash)
     }
 
     async fn destroy(&self) -> anyhow::Result<()> {

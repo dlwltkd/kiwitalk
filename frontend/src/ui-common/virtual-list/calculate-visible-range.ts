@@ -15,12 +15,12 @@ export const calculateVisibleRange = (
 
   let index = 0;
   let topOffset = 0;
-  for (; topOffset < scrollTop; index += 1) {
+  for (; index < length && topOffset < scrollTop; index += 1) {
     topOffset += getHeight(index);
   }
   newStartIndex = Math.min(Math.max(index - overscan, 0), length);
 
-  for (; topOffset < scrollTop + clientHeight; index += 1) {
+  for (; index < length && topOffset < scrollTop + clientHeight; index += 1) {
     topOffset += getHeight(index);
   }
   newEndIndex = Math.max(Math.min(index + overscan, length), 0);

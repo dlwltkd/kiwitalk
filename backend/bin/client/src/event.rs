@@ -21,12 +21,20 @@ pub(crate) enum ClientEvent {
 #[derive(Debug, Serialize)]
 #[serde(tag = "type", content = "content")]
 pub(crate) enum ChannelEvent {
-    Chat(Chatlog),
+    Chat {
+        chat: Chatlog,
+        read: bool,
+    },
 
     #[serde(rename_all = "camelCase")]
     ChatRead {
         user_id: String,
         log_id: String,
+    },
+
+    #[serde(rename_all = "camelCase")]
+    UnreadChanged {
+        unread_count: i32,
     },
 
     ChatDeleted(Chatlog),

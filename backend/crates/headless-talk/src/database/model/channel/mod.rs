@@ -22,4 +22,10 @@ pub struct ChannelListRow {
     pub last_seen_log_id: Option<i64>,
 
     pub last_update: i64,
+
+    pub room_token: i64,
+
+    pub push_alert: bool,
+
+    pub last_log_id: i64,
 }
