@@ -1,102 +1,118 @@
-import { classes, vars } from '@/features/theme';
 import { style, styleVariants } from '@vanilla-extract/css';
 
-const baseChannelItemContainer = style({
+import { vars } from '@/features/theme';
+
+const channelBase = style({
   width: '100%',
-
-  display: 'flex',
-  flexDirection: 'row',
-  justifyContent: 'flex-start',
+  minHeight: '50px',
+  display: 'grid',
+  gridTemplateColumns: '28px minmax(0, 1fr) 40px',
   alignItems: 'center',
-  gap: '16px',
-
-  padding: '16px',
-  marginBottom: '-6px',
-
-  borderRadius: vars.radius.regular,
-  cursor: 'pointer',
-  outlineStyle: 'solid',
-  outlineColor: 'transparent',
-
-  transition: `background ${vars.easing.background}, outline ${vars.easing.background}`,
+  gap: '6px',
+  padding: '6px 8px',
+  color: vars.color.terminal.foreground,
+  borderLeft: '2px solid transparent',
+  textAlign: 'left',
+  transition: `color ${vars.easing.fill}, background ${vars.easing.background}`,
 });
 
-export const channelItemContainer = styleVariants({
-  active: [baseChannelItemContainer, {
-    background: vars.color.primary.elevated,
-    outlineWidth: '2px',
-
-    selectors: {
-      '&:hover': {
-        outlineColor: vars.color.secondary.elevated,
-      },
-    },
+export const channel = styleVariants({
+  active: [channelBase, {
+    color: vars.color.terminal.foregroundBright,
+    background: vars.color.terminal.selection,
+    borderLeftColor: vars.color.terminal.accentBright,
   }],
-  inactive: [baseChannelItemContainer, {
-    outlineOffset: '-8px',
-    outlineWidth: '2px',
-
+  cursor: [channelBase, {
+    background: vars.color.terminal.surfaceHover,
+    borderLeftColor: vars.color.terminal.accent,
+  }],
+  inactive: [channelBase, {
     selectors: {
       '&:hover': {
-        outlineColor: vars.color.secondary.elevated,
+        background: vars.color.terminal.surfaceHover,
       },
     },
   }],
 });
 
-export const contentContainer = style({
-  minWidth: '0px',
+export const index = style({
+  alignSelf: 'start',
+  paddingTop: '2px',
+  color: vars.color.terminal.accent,
+  fontSize: '9px',
+  fontVariantNumeric: 'tabular-nums',
+});
 
+export const content = style({
+  minWidth: 0,
   display: 'flex',
   flexDirection: 'column',
-  justifyContent: 'center',
-  alignItems: 'flex-start',
-  gap: '8px',
-
-  overflow: 'hidden',
+  gap: '4px',
 });
 
-export const header = style([classes.typography.body, {
-  width: '100%',
-
+export const heading = style({
+  minWidth: 0,
   display: 'flex',
-  flexDirection: 'row',
-  justifyContent: 'flex-start',
-  alignItems: 'center',
+  alignItems: 'baseline',
   gap: '5px',
-
-  color: vars.color.primary.fillSecondary,
-}]);
-
-export const title = style([classes.typography.head3, {
-  color: vars.color.primary.fillPrimary,
-  whiteSpace: 'nowrap',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-
-  flexShrink: 1,
-}]);
-
-export const icon = style({
-  flexShrink: 0,
 });
 
-export const content = style([classes.typography.body, {
-  display: '-webkit-box',
-
-  color: vars.color.primary.fillPrimary,
-
-  whiteSpace: 'pre-line',
+export const name = style({
+  minWidth: 0,
   overflow: 'hidden',
+  color: 'inherit',
+  fontSize: '11px',
+  fontWeight: 700,
   textOverflow: 'ellipsis',
-  lineClamp: 2,
-  WebkitLineClamp: 2,
-  WebkitBoxOrient: 'vertical',
-  wordBreak: 'break-word',
-}]);
+  whiteSpace: 'nowrap',
+});
 
-export const time = style([classes.typography.fineprint, {
-  marginLeft: 'auto',
-
+export const members = style({
   flexShrink: 0,
-}]);
+  color: vars.color.terminal.foregroundMuted,
+  fontSize: '9px',
+});
+
+export const muted = style({
+  flexShrink: 0,
+  color: vars.color.terminal.borderStrong,
+  fontSize: '8px',
+  textTransform: 'uppercase',
+});
+
+export const preview = style({
+  minWidth: 0,
+  overflow: 'hidden',
+  color: vars.color.terminal.foregroundMuted,
+  fontSize: '10px',
+  lineHeight: '13px',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+});
+
+export const meta = style({
+  alignSelf: 'stretch',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'flex-end',
+  justifyContent: 'space-between',
+  gap: '3px',
+});
+
+export const time = style({
+  color: vars.color.terminal.foregroundMuted,
+  fontSize: '8px',
+  fontVariantNumeric: 'tabular-nums',
+});
+
+export const unread = style({
+  minWidth: '17px',
+  padding: '1px 3px',
+  color: vars.color.terminal.background,
+  background: vars.color.terminal.accentBright,
+  fontSize: '9px',
+  fontWeight: 700,
+  lineHeight: '13px',
+  textAlign: 'center',
+  fontVariantNumeric: 'tabular-nums',
+});
