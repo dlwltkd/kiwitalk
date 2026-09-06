@@ -10,6 +10,9 @@ authors.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
+[features]
+diagnostics = []
+
 [dependencies]
 talk-loco-client = { workspace = true }
 headless-talk = { workspace = true }
@@ -19,8 +22,10 @@ kiwi-talk-system = { path = "../system" }
 kiwi-talk-result = { path = "../result" }
 kiwi-talk-resource = { path = "../resource" }
 
-tokio = { workspace = true, features = ["rt"] }
+tokio = { workspace = true, features = ["rt", "time"] }
+tokio-native-tls = "0.3.1"
 tauri = { workspace = true }
+tauri-plugin-notification = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }
 log = { workspace = true }
@@ -32,3 +37,15 @@ num-bigint-dig = "0.8.4"
 once_cell = "1.19.0"
 tokio-util = { version = "0.7.10", features = ["compat"] }
 hex = "0.4.3"
+
+[dev-dependencies]
+dotenvy = "0.15.7"
+reqwest = "0.12.4"
+talk-api-internal = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
+zeroize = "1.9.0"
+
+[[example]]
+name = "android_loco_probe"
+path = "examples/android_loco_probe.rs"
+required-features = ["diagnostics"]
