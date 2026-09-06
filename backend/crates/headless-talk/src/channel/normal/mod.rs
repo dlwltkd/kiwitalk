@@ -21,7 +21,7 @@ use crate::{
         model::{
             channel::{meta::ChannelMetaRow, ChannelListRow},
             user::{
-                normal::{NormalChannelUserModel, NormalChannelUserRow},
+                normal::{NormalChannelUserModel, NormalChannelUserRow, NormalChannelUserUpdate},
                 UserProfileModel, UserProfileRow, UserProfileUpdate,
             },
         },
@@ -159,7 +159,9 @@ pub(crate) async fn load_channel(
             match normal.users {
                 ChatOnChannelUsers::Ids(ids) => {
                     for user_id in ids.iter().copied() {
-                        user_list.push((user_id, get_channel_user(conn, id, user_id)?));
+                        if let Some(user) = get_channel_user(conn, id, user_id)? {
+                            user_list.push((user_id, user));
+                        }
                     }
                 }
 
@@ -167,7 +169,9 @@ pub(crate) async fn load_channel(
                     update_channel_users(conn, id, &users)?;
 
                     for user_id in users.iter().map(|user| user.user_id) {
-                        user_list.push((user_id, get_channel_user(conn, id, user_id)?));
+                        if let Some(user) = get_channel_user(conn, id, user_id)? {
+                            user_list.push((user_id, user));
+                        }
                     }
                 }
             }
@@ -192,8 +196,8 @@ fn get_channel_user(
     conn: &mut SqliteConnection,
     id: i64,
     user_id: i64,
-) -> Result<NormalChannelUser, PoolTaskError> {
-    let (profile, normal) = user_profile::table
+) -> Result<Option<NormalChannelUser>, PoolTaskError> {
+    let models = user_profile::table
         .filter(
             user_profile::channel_id
                 .eq(id)
@@ -208,9 +212,10 @@ fn get_channel_user(
             UserProfileModel::as_select(),
             NormalChannelUserModel::as_select(),
         ))
-        .first::<(UserProfileModel, NormalChannelUserModel)>(conn)?;
+        .first::<(UserProfileModel, NormalChannelUserModel)>(conn)
+        .optional()?;
 
-    Ok(NormalChannelUser::from_models(profile, normal))
+    Ok(models.map(|(profile, normal)| NormalChannelUser::from_models(profile, normal)))
 }
 
 fn update_channel_users(
@@ -225,16 +230,114 @@ fn update_channel_users(
             .do_update()
             .set(UserProfileUpdate::from(user))
             .execute(conn)?;
+
+        let row = NormalChannelUserRow::from_user(id, user);
+        let update = NormalChannelUserUpdate::from(user);
+
+        if update.has_changes() {
+            diesel::insert_into(normal_channel_user::table)
+                .values(row)
+                .on_conflict((normal_channel_user::id, normal_channel_user::channel_id))
+                .do_update()
+                .set(update)
+                .execute(conn)?;
+        } else {
+            diesel::insert_into(normal_channel_user::table)
+                .values(row)
+                .on_conflict((normal_channel_user::id, normal_channel_user::channel_id))
+                .do_nothing()
+                .execute(conn)?;
+        }
     }
 
-    diesel::replace_into(normal_channel_user::table)
-        .values(
-            users
-                .iter()
-                .map(|user| NormalChannelUserRow::from_user(id, user))
-                .collect::<Vec<_>>(),
-        )
-        .execute(conn)?;
-
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use diesel::{connection::SimpleConnection, Connection};
+
+    use super::*;
+
+    fn test_connection() -> SqliteConnection {
+        let mut conn = SqliteConnection::establish(":memory:").unwrap();
+        conn.batch_execute(include_str!(
+            "../../../migrations/2023-10-21-003644_v0.1/up.sql"
+        ))
+        .unwrap();
+        conn
+    }
+
+    #[test]
+    fn sparse_member_update_preserves_cached_fields() {
+        let mut conn = test_connection();
+        let channel_id = 7;
+        let user_id = 11;
+
+        diesel::insert_into(user_profile::table)
+            .values(UserProfileRow {
+                id: user_id,
+                channel_id,
+                nickname: "old nickname",
+                profile_url: "profile",
+                full_profile_url: "full profile",
+                original_profile_url: "original profile",
+            })
+            .execute(&mut conn)
+            .unwrap();
+        diesel::insert_into(normal_channel_user::table)
+            .values(NormalChannelUserRow {
+                id: user_id,
+                channel_id,
+                country_iso: "KR",
+                account_id: 42,
+                status_message: "old status",
+                linked_services: "old services",
+                suspended: true,
+            })
+            .execute(&mut conn)
+            .unwrap();
+
+        let user: normal::user::User = bson::from_document(bson::doc! {
+            "userId": user_id,
+            "nickName": "new nickname",
+            "countryIso": "US",
+            "profileImageUrl": bson::Bson::Null,
+            "accountId": bson::Bson::Null,
+            "statusMessage": "",
+            "suspended": false,
+        })
+        .unwrap();
+
+        update_channel_users(&mut conn, channel_id, &[user]).unwrap();
+
+        let profile = user_profile::table
+            .filter(
+                user_profile::channel_id
+                    .eq(channel_id)
+                    .and(user_profile::id.eq(user_id)),
+            )
+            .select(UserProfileModel::as_select())
+            .first::<UserProfileModel>(&mut conn)
+            .unwrap();
+        let member = normal_channel_user::table
+            .filter(
+                normal_channel_user::channel_id
+                    .eq(channel_id)
+                    .and(normal_channel_user::id.eq(user_id)),
+            )
+            .select(NormalChannelUserModel::as_select())
+            .first::<NormalChannelUserModel>(&mut conn)
+            .unwrap();
+
+        assert_eq!(profile.nickname, "new nickname");
+        assert_eq!(profile.profile_url, "profile");
+        assert_eq!(profile.full_profile_url, "full profile");
+        assert_eq!(profile.original_profile_url, "original profile");
+        assert_eq!(member.country_iso, "US");
+        assert_eq!(member.account_id, 42);
+        assert_eq!(member.status_message, "");
+        assert_eq!(member.linked_services, "old services");
+        assert!(!member.suspended);
+    }
 }
