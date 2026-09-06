@@ -1,56 +1,66 @@
-import { classes, vars } from '@/features/theme';
-import { style } from '@vanilla-extract/css';
+import { style, styleVariants } from '@vanilla-extract/css';
 
-export const container = style({
-  minWidth: '400px',
+import { vars } from '@/features/theme';
 
-  display: 'flex',
-  flexDirection: 'row',
-  justifyContent: 'flex-start',
+const base = style({
+  width: '100%',
+  minHeight: '54px',
+  display: 'grid',
+  gridTemplateColumns: '26px minmax(0, 1fr) auto',
   alignItems: 'center',
-  gap: '16px',
+  gap: '8px',
+  padding: '8px 10px',
+  color: vars.color.terminal.foreground,
+  background: vars.color.terminal.background,
+  border: `1px solid ${vars.color.terminal.border}`,
+  borderLeft: '2px solid transparent',
+  textAlign: 'left',
+});
 
-  padding: '24px 20px',
-  borderRadius: vars.radius.regular,
-
-  backdropFilter: vars.blur.regular,
-  WebkitBackdropFilter: vars.blur.regular,
-  backgroundColor: vars.color.glassSecondary.background,
-
-  userSelect: 'none',
-  cursor: 'pointer',
-
-  transition: `background-color ${vars.easing.background}`,
-
-  selectors: {
-    '&:hover': {
-      backgroundColor: vars.color.glassSecondary.attention,
+export const container = styleVariants({
+  selected: [base, {
+    background: vars.color.terminal.selection,
+    borderLeftColor: vars.color.terminal.accentBright,
+  }],
+  idle: [base, {
+    selectors: {
+      '&:hover': {
+        background: vars.color.terminal.surfaceHover,
+        borderLeftColor: vars.color.terminal.accent,
+      },
     },
-  },
+  }],
+});
+
+export const index = style({
+  color: vars.color.terminal.accent,
+  fontSize: '9px',
 });
 
 export const textContainer = style({
-  width: '100%',
-  height: '100%',
-
+  minWidth: 0,
   display: 'flex',
   flexDirection: 'column',
-  justifyContent: 'center',
-  alignItems: 'flex-start',
-  gap: '4px',
+  gap: '3px',
 });
 
-export const name = style([classes.typography.head1, {
-  color: vars.color.glassSecondary.fillPrimary,
-  lineHeight: 'normal',
+export const name = style({
+  color: vars.color.terminal.foregroundBright,
+  fontSize: '11px',
+  fontWeight: 700,
+  textTransform: 'uppercase',
+});
 
-  gridColumn: '2 / span 1',
-  gridRow: '1 / span 1',
-}]);
+export const email = style({
+  overflow: 'hidden',
+  color: vars.color.terminal.foregroundMuted,
+  fontSize: '9px',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+});
 
-export const email = style([classes.typography.body, {
-  color: vars.color.glassSecondary.fillSecondary,
-
-  gridColumn: '2 / span 1',
-  gridRow: '2 / span 1',
-}]);
+export const state = style({
+  color: vars.color.terminal.accentBright,
+  fontSize: '8px',
+  textTransform: 'uppercase',
+});
