@@ -1,6 +1,7 @@
 mod constants;
 
 use std::{
+    fmt,
     ops::Deref,
     path::{Path, PathBuf},
     sync::OnceLock,
@@ -9,18 +10,18 @@ use std::{
 use anyhow::Context;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use rand::Rng;
+use sha2::{Digest, Sha256};
 use tauri::{
     generate_handler,
+    path::PathResolver,
     plugin::{Builder, TauriPlugin},
-    PathResolver, Runtime,
+    Runtime,
 };
-use tokio::{
-    fs::{self, File},
-    io::AsyncReadExt,
-};
+use tokio::{fs, io::AsyncWriteExt};
 
 use crate::constants::{
-    APP_DEVICE_UUID_FILE, APP_PORTABLE_DATA_DIR, DEFAULT_DEVICE_LOCALE, DEFAULT_DEVICE_NAME,
+    ANDROID_SUBDEVICE_UUID_DOMAIN, APP_DEVICE_UUID_FILE, APP_PORTABLE_DATA_DIR,
+    DEFAULT_DEVICE_LOCALE, DEFAULT_DEVICE_NAME,
 };
 
 static SYSTEM: OnceLock<SystemInfo> = OnceLock::new();
@@ -29,7 +30,7 @@ pub fn get_system_info() -> &'static SystemInfo {
     SYSTEM.get().unwrap()
 }
 
-pub async fn init<R: Runtime>(path_resolver: PathResolver) -> anyhow::Result<TauriPlugin<R>> {
+pub async fn init<R: Runtime>(path_resolver: PathResolver<R>) -> anyhow::Result<TauriPlugin<R>> {
     SYSTEM
         .set(create_system_info(&path_resolver).await?)
         .expect("Cannot initialize System information");
@@ -77,11 +78,18 @@ pub struct Device {
 impl Device {
     #[inline]
     pub fn language(&self) -> &str {
-        &self.locale[..2]
+        locale_language(&self.locale).unwrap_or("en")
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+fn locale_language(locale: &str) -> Option<&str> {
+    locale
+        .split(['-', '_', '.'])
+        .next()
+        .filter(|language| language.len() == 2 && language.chars().all(|c| c.is_ascii_alphabetic()))
+}
+
+#[derive(Clone, PartialEq, Eq)]
 pub struct DeviceUuid(String);
 
 impl DeviceUuid {
@@ -91,6 +99,17 @@ impl DeviceUuid {
 
     pub fn decode(&self) -> Vec<u8> {
         STANDARD.decode(&self.0).unwrap()
+    }
+
+    pub fn android_subdevice_uuid(&self) -> String {
+        let bytes: [u8; 64] = self.decode().try_into().unwrap();
+        derive_android_subdevice_uuid(&bytes)
+    }
+}
+
+impl fmt::Debug for DeviceUuid {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("DeviceUuid(REDACTED)")
     }
 }
 
@@ -111,7 +130,14 @@ fn gen_device_uuid() -> DeviceUuid {
     DeviceUuid::new(&random_bytes)
 }
 
-async fn create_system_info(resolver: &PathResolver) -> anyhow::Result<SystemInfo> {
+pub fn derive_android_subdevice_uuid(device_seed: &[u8; 64]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(ANDROID_SUBDEVICE_UUID_DOMAIN);
+    hasher.update(device_seed);
+    hex::encode(hasher.finalize())
+}
+
+async fn create_system_info<R: Runtime>(resolver: &PathResolver<R>) -> anyhow::Result<SystemInfo> {
     let device_data_dir = resolver
         .app_data_dir()
         .context("cannot find device data directory")?;
@@ -136,7 +162,9 @@ async fn create_system_info(resolver: &PathResolver) -> anyhow::Result<SystemInf
         (device_data_dir, device_config_dir)
     };
 
-    let locale = sys_locale::get_locale().unwrap_or_else(|| String::from(DEFAULT_DEVICE_LOCALE));
+    let locale = sys_locale::get_locale()
+        .filter(|locale| locale_language(locale).is_some())
+        .unwrap_or_else(|| String::from(DEFAULT_DEVICE_LOCALE));
     let name = hostname::get()
         .map(|hostname| hostname.into_string().ok())
         .ok()
@@ -171,18 +199,79 @@ async fn init_device_uuid(device_data_dir: &Path) -> anyhow::Result<DeviceUuid> 
             .map(|metadata| metadata.is_file())
             .unwrap_or(false)
         {
-            let mut file = File::open(&path).await?;
+            let data = fs::read(&path).await?;
+            let buf: [u8; 64] = data.try_into().map_err(|data: Vec<u8>| {
+                anyhow::anyhow!(
+                    "device UUID must contain exactly 64 bytes, found {}",
+                    data.len()
+                )
+            })?;
 
-            let mut buf = [0; 64];
-            file.read_exact(&mut buf).await?;
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).await?;
+            }
 
             DeviceUuid::new(&buf)
         } else {
             let uuid = gen_device_uuid();
             fs::create_dir_all(path.parent().unwrap()).await?;
-            fs::write(&path, uuid.decode()).await?;
+            write_device_uuid(&path, &uuid.decode()).await?;
 
             uuid
         },
     )
+}
+
+#[cfg(unix)]
+async fn write_device_uuid(path: &Path, data: &[u8]) -> std::io::Result<()> {
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(path)
+        .await?;
+    file.write_all(data).await
+}
+
+#[cfg(not(unix))]
+async fn write_device_uuid(path: &Path, data: &[u8]) -> std::io::Result<()> {
+    fs::write(path, data).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{derive_android_subdevice_uuid, locale_language, DeviceUuid};
+
+    #[test]
+    fn extracts_two_letter_language_from_common_locale_formats() {
+        assert_eq!(locale_language("ko-KR"), Some("ko"));
+        assert_eq!(locale_language("en_US.UTF-8"), Some("en"));
+    }
+
+    #[test]
+    fn rejects_non_language_locales() {
+        assert_eq!(locale_language("C"), None);
+        assert_eq!(locale_language("POSIX"), None);
+        assert_eq!(locale_language(""), None);
+    }
+
+    #[test]
+    fn derives_a_stable_domain_separated_android_uuid() {
+        let uuid = derive_android_subdevice_uuid(&[7_u8; 64]);
+
+        assert_eq!(uuid.len(), 64);
+        assert!(uuid.bytes().all(|byte| byte.is_ascii_hexdigit()));
+        assert_eq!(uuid, derive_android_subdevice_uuid(&[7_u8; 64]));
+        assert_ne!(uuid, hex::encode([7_u8; 32]));
+    }
+
+    #[test]
+    fn device_uuid_debug_is_redacted() {
+        let uuid = DeviceUuid::new(&[7_u8; 64]);
+
+        assert_eq!(format!("{uuid:?}"), "DeviceUuid(REDACTED)");
+        assert!(!format!("{uuid:?}").contains(&*uuid));
+    }
 }
