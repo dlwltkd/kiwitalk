@@ -1,0 +1,22 @@
+KiwiTalk revival fork
+
+This project is derived from KiwiTalk.
+Original project: https://github.com/KiwiTalk/KiwiTalk
+Original authors: KiwiTalk contributors
+
+Fork repository: https://github.com/dlwltkd/kiwitalk
+Fork maintainer: dlwltkd
+
+This fork includes modifications to Linux desktop support, Tauri 2
+integration, authentication and device registration, chat history
+synchronization, the user interface, and project documentation.
+
+The project code and this fork's modifications are distributed under the
+Apache License, Version 2.0. See LICENSE-APACHE. Existing copyright and
+attribution notices remain applicable to their respective contributions.
+
+The bundled Pretendard font is licensed separately under the SIL Open Font
+License, Version 1.1. Its copyright notices and license are included in
+frontend/public/fonts/OFL.txt.
+
+KiwiTalk is not affiliated with or endorsed by Kakao Corp.
